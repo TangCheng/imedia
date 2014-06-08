@@ -1,4 +1,5 @@
 #include "imedia.h"
+#include "hi3518a/media_sys_ctrl.h"
 
 /*
 enum
@@ -12,6 +13,7 @@ enum
 typedef struct _IpcamIMediaPrivate
 {
     gchar *xx;
+    IpcamMediaSysCtrl *sys_ctrl;
 } IpcamIMediaPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(IpcamIMedia, ipcam_imedia, IPCAM_BASE_APP_TYPE)
@@ -23,12 +25,15 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia);
 
 static void ipcam_imedia_finalize(GObject *object)
 {
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(IPCAM_IMEDIA(object));
+    g_clear_object(&priv->sys_ctrl);
     G_OBJECT_CLASS(ipcam_imedia_parent_class)->finalize(object);
 }
 static void ipcam_imedia_init(IpcamIMedia *self)
 {
 	IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(self);
     priv->xx = NULL;
+    priv->sys_ctrl = g_object_new(IPCAM_MEDIA_SYS_CTRL_TYPE, NULL);
 }
 /*
 static void ipcam_imedia_get_property(GObject    *object,
