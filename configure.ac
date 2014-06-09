@@ -21,7 +21,7 @@ AC_PROG_CC
 LT_INIT
 
 
-PKG_CHECK_MODULES(IMEDIA, [json-glib-1.0 glib-2.0 gobject-2.0 libipcam_base-0.1.0 ])
+PKG_CHECK_MODULES(IMEDIA, [json-glib-1.0 glib-2.0 gobject-2.0 libipcam_base-0.1.0 shm_queue-0.1.00 ])
 
 
 trymppdir=""

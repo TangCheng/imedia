@@ -25,5 +25,7 @@ struct _IpcamMediaVideoProcClass
 };
 
 GType ipcam_media_video_proc_get_type(void);
+HI_S32 ipcam_media_vidoe_proc_start_video_stream_proc(IpcamMediaVideoProc *media_proc);
+HI_S32 ipcam_media_video_proc_stop_video_stream_proc(IpcamMediaVideoProc *media_proc);
 
 #endif /* __MEDIA_VIDEO_PROC_H__ */

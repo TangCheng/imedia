@@ -1,3 +1,39 @@
+#include <hi_comm_isp.h>
+#include <hi_comm_vi.h>
+#include <hi_comm_vo.h>
+#include <hi_comm_venc.h>
+#include <hi_comm_vpss.h>
+#include <hi_comm_vdec.h>
+#include <hi_comm_vda.h>
+#include <hi_comm_region.h>
+#include <hi_comm_adec.h>
+#include <hi_comm_aenc.h>
+#include <hi_comm_ai.h>
+#include <hi_comm_ao.h>
+#include <hi_comm_aio.h>
+#include <hi_comm_isp.h>
+#include <hi_defines.h>
+
+#include <mpi_sys.h>
+#include <mpi_vb.h>
+#include <mpi_vi.h>
+#include <mpi_vo.h>
+#include <mpi_venc.h>
+#include <mpi_vpss.h>
+#include <mpi_vdec.h>
+#include <mpi_vda.h>
+#include <mpi_region.h>
+#include <mpi_adec.h>
+#include <mpi_aenc.h>
+#include <mpi_ai.h>
+#include <mpi_ao.h>
+#include <mpi_isp.h>
+#include <mpi_ae.h>
+#include <mpi_awb.h>
+#include <mpi_af.h>
+#include <hi_sns_ctrl.h>
+#include <shm_queue.h>
+#include <shm_rr_queue.h>
 #include "media_video_proc.h"
 
 enum
@@ -10,16 +46,30 @@ enum
 typedef struct _IpcamMediaVideoProcPrivate
 {
     gchar *xx;
+    IpcamShmRRQueue *video_pool;
 } IpcamMediaVideoProcPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(IpcamMediaVideoProc, ipcam_media_video_proc, G_TYPE_OBJECT)
 
 static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 
+static void ipcam_media_video_proc_finalize(GObject *object)
+{
+    IpcamMediaVideoProcPrivate *priv = ipcam_media_video_proc_get_instance_private(self);
+    g_clear_object(&priv->video_pool);
+    G_OBJECT_CLASS(ipcam_media_video_proc_parent_class)->finalize(object);
+}
 static void ipcam_media_video_proc_init(IpcamMediaVideoProc *self)
 {
 	IpcamMediaVideoProcPrivate *priv = ipcam_media_video_proc_get_instance_private(self);
     priv->xx = NULL;
+    priv->video_pool = g_object_new(IPCAM_SHM_RR_QUEUE_TYPE,
+                                    "block-num", 10,
+                                    "pool-size", 1024 * 1024,
+                                    "mode", OP_MODE_WRITE,
+                                    "priority", WRITE_PRIO,
+                                    NULL);
+    ipcam_shm_rr_queue_open(queue, "/data/configuration.sqlite3", 0);
 }
 static void ipcam_media_video_proc_get_property(GObject    *object,
                                                 guint       property_id,
@@ -75,7 +125,7 @@ static void ipcam_media_video_proc_class_init(IpcamMediaVideoProcClass *klass)
 
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
 }
-HI_S32 H264LiveStreamSource::start_video_input_unit(void)
+HI_S32 ipcam_media_vidoe_proc_start_video_input_unit(IpcamMediaVideoProc *media_proc)
 {
     HI_S32 i, s32Ret = HI_SUCCESS;
     VI_DEV ViDev;
@@ -186,7 +236,7 @@ HI_S32 H264LiveStreamSource::start_video_input_unit(void)
     return s32Ret;
 }
     
-HI_S32 H264LiveStreamSource::stop_video_input_unit(void)
+HI_S32 ipcam_media_vidoe_proc_stop_video_input_unit(IpcamMediaVideoProc *media_proc)
 {
     VI_DEV ViDev;
     VI_CHN ViChn;
@@ -223,7 +273,7 @@ HI_S32 H264LiveStreamSource::stop_video_input_unit(void)
     return HI_SUCCESS;
 }
 
-HI_S32 H264LiveStreamSource::start_video_process_subsystem_unit(void)
+HI_S32 ipcam_media_vidoe_proc_start_video_process_subsystem_unit(IpcamMediaVideoProc *media_proc)
 {
     VPSS_GRP VpssGrp = 0;
     VPSS_CHN VpssChn = 0;
@@ -307,7 +357,7 @@ HI_S32 H264LiveStreamSource::start_video_process_subsystem_unit(void)
     return HI_SUCCESS;
 }
 
-HI_VOID H264LiveStreamSource::stop_video_process_subsystem_unit(void)
+HI_VOID ipcam_media_vidoe_proc_stop_video_process_subsystem_unit(IpcamMediaVideoProc *media_proc)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     VPSS_GRP VpssGrp = 0;
@@ -334,7 +384,7 @@ HI_VOID H264LiveStreamSource::stop_video_process_subsystem_unit(void)
     }
 }
 
-HI_S32 H264LiveStreamSource::start_video_encode_unit(void)
+HI_S32 ipcam_media_vidoe_proc_start_video_encode_unit(IpcamMediaVideoProc *media_proc)
 {
     HI_S32 s32Ret;
     VENC_GRP VeGroup = 0;
@@ -393,7 +443,7 @@ HI_S32 H264LiveStreamSource::start_video_encode_unit(void)
     return HI_SUCCESS;
 }
 
-HI_S32 H264LiveStreamSource::stop_video_encode_unit(void)
+HI_S32 ipcam_media_vidoe_proc_stop_video_encode_unit(IpcamMediaVideoProc *media_proc)
 {
     HI_S32 s32Ret;
     VENC_GRP VeGrp = 0;
@@ -446,7 +496,7 @@ HI_S32 H264LiveStreamSource::stop_video_encode_unit(void)
     return HI_SUCCESS;
 }
 
-HI_S32 H264LiveStreamSource::vpss_bind_vi(void)
+HI_S32 ipcam_media_vidoe_proc_vpss_bind_vi(IpcamMediaVideoProc *media_proc)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     MPP_CHN_S stSrcChn;
@@ -469,7 +519,7 @@ HI_S32 H264LiveStreamSource::vpss_bind_vi(void)
     return s32Ret;
 }
 
-HI_S32 H264LiveStreamSource::venc_bind_vpss(void)
+HI_S32 ipcam_media_vidoe_proc_venc_bind_vpss(IpcamMediaVideoProc *media_proc)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     MPP_CHN_S stSrcChn;
@@ -493,7 +543,7 @@ HI_S32 H264LiveStreamSource::venc_bind_vpss(void)
 }
 
 #if 0
-HI_VOID* H264LiveStreamSource::video_stream_proc(void *param)
+HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
 {
     HI_S32 i;
     volatile ThreadParam *pThreadParam;
@@ -647,7 +697,7 @@ HI_VOID* H264LiveStreamSource::video_stream_proc(void *param)
 }
 #endif
 
-HI_S32 H264LiveStreamSource::start_video_stream_proc(void)
+HI_S32 ipcam_media_vidoe_proc_start_video_stream_proc(IpcamMediaVideoProc *media_proc)
 {
     HI_S32 s32Ret;
     s32Ret = start_video_input_unit();
@@ -680,7 +730,7 @@ HI_S32 H264LiveStreamSource::start_video_stream_proc(void)
     return s32Ret;
 }
 
-HI_VOID H264LiveStreamSource::stop_video_stream_proc(void)
+HI_VOID ipcam_media_vidoe_proc_stop_video_stream_proc(IpcamMediaVideoProc *media_proc)
 {
     envir().taskScheduler().turnOffBackgroundReadHandling(vencFd);
     stop_video_encode_unit();
@@ -689,6 +739,7 @@ HI_VOID H264LiveStreamSource::stop_video_stream_proc(void)
 
     return;
 }
+#if 0
 {
     VENC_CHN_STAT_S stStat;
     VENC_STREAM_S stStream;
@@ -826,3 +877,4 @@ HI_VOID H264LiveStreamSource::stop_video_stream_proc(void)
     if (newFrameSize > 0)
         FramedSource::afterGetting(this);
 }
+#endif
