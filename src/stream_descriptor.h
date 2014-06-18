@@ -18,8 +18,8 @@ enum VideoFormat
 
 enum BitRateType
 {
-     CONST_BIT_RATE = 0,
-     VIRABLE_BIT_RATE = 1,
+     CONSTANT_BIT_RATE = 0,
+     VIRIABLE_BIT_RATE = 1,
      BIT_RATE_TYPE_LAST,
 };
 
