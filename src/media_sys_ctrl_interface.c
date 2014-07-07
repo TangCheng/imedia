@@ -1,13 +1,13 @@
 #include "media_sys_ctrl_interface.h"
 
 G_DEFINE_INTERFACE(IpcamIMediaSysCtrl, ipcam_imedia_sys_ctrl, 0);
-/*
+
 static void
-ipcam_imedia_sys_ctrl_default_init(gpointer g_iface)
+ipcam_imedia_sys_ctrl_default_init(IpcamIMediaSysCtrlInterface *iface)
 {
 
 }
-*/
+
 void
 ipcam_imedia_sys_ctrl_init(IpcamIMediaSysCtrl *self)
 {

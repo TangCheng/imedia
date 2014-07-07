@@ -1,3 +1,4 @@
+#include <hi_defines.h>
 #include <hi_comm_sys.h>
 #include <hi_comm_vb.h>
 #include <mpi_sys.h>
