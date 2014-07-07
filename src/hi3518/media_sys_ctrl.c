@@ -5,7 +5,13 @@
 #include <memory.h>
 #include "media_sys_ctrl.h"
 
-G_DEFINE_TYPE(IpcamMediaSysCtrl, ipcam_media_sys_ctrl, G_TYPE_OBJECT)
+static void ipcam_imedia_sys_ctrl_interface_init(IpcamIMediaSysCtrlInterface *iface);
+static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self);
+static void ipcam_media_sys_ctrl_uninit_media_system(IpcamMediaSysCtrl *self);
+
+G_DEFINE_TYPE_WITH_CODE(IpcamMediaSysCtrl, ipcam_media_sys_ctrl, G_TYPE_OBJECT,
+                        G_IMPLEMENT_INTERFACE(IPCAM_TYPE_IMEDIA_SYS_CTRL,
+                                              ipcam_imedia_sys_ctrl_interface_init));
 
 #define SYS_ALIGN_WIDTH      64
 
@@ -14,11 +20,19 @@ G_DEFINE_TYPE(IpcamMediaSysCtrl, ipcam_media_sys_ctrl, G_TYPE_OBJECT)
 
 static void ipcam_media_sys_ctrl_finalize(GObject *object)
 {
-    HI_MPI_SYS_Exit();
-    HI_MPI_VB_Exit();
+    ipcam_media_sys_ctrl_uninit_media_system(IPCAM_MEDIA_SYS_CTRL(object));
     G_OBJECT_CLASS(ipcam_media_sys_ctrl_parent_class)->finalize(object);
 }
 static void ipcam_media_sys_ctrl_init(IpcamMediaSysCtrl *self)
+{
+}
+static void ipcam_media_sys_ctrl_class_init(IpcamMediaSysCtrlClass *klass)
+{
+    GObjectClass *object_class = G_OBJECT_CLASS(klass);
+    object_class->finalize = &ipcam_media_sys_ctrl_finalize;
+}
+
+static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self)
 {
     VB_CONF_S stVbConf;
     MPP_SYS_CONF_S stSysConf = {0};
@@ -64,8 +78,16 @@ static void ipcam_media_sys_ctrl_init(IpcamMediaSysCtrl *self)
         return;
     }
 }
-static void ipcam_media_sys_ctrl_class_init(IpcamMediaSysCtrlClass *klass)
+
+static void ipcam_media_sys_ctrl_uninit_media_system(IpcamMediaSysCtrl *self)
 {
-    GObjectClass *object_class = G_OBJECT_CLASS(klass);
-    object_class->finalize = &ipcam_media_sys_ctrl_finalize;
+    HI_MPI_SYS_Exit();
+    HI_MPI_VB_Exit();
+}
+
+static void ipcam_imedia_sys_ctrl_interface_init(IpcamIMediaSysCtrlInterface *iface)
+{
+    iface->init_media_system = ipcam_media_sys_ctrl_init_media_system;
+    iface->uninit_media_system = ipcam_media_sys_ctrl_uninit_media_system;
+    g_print("%s %i.\n", __func__, __LINE__);
 }
