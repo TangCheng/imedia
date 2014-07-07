@@ -4,6 +4,7 @@
 #include <mpi_vb.h>
 #include <memory.h>
 #include "media_sys_ctrl.h"
+#include "../media_sys_ctrl_interface.h"
 
 static void ipcam_imedia_sys_ctrl_interface_init(IpcamIMediaSysCtrlInterface *iface);
 static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self);
