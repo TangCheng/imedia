@@ -21,7 +21,7 @@ AC_PROG_CC
 LT_INIT
 
 
-PKG_CHECK_MODULES(IMEDIA, [json-glib-1.0 glib-2.0 gobject-2.0 libipcam_base-0.1.0 shm_queue-0.1.00 ])
+PKG_CHECK_MODULES(IMEDIA, [json-glib-1.0 glib-2.0 gobject-2.0 libipcam_base-0.1.0 shm_queue-0.1.00 SDL2_ttf])
 
 AC_ARG_ENABLE([hi3518],
 	AS_HELP_STRING([--enable-hi3518],[Build with hi3518 support (default: enabled)]),
@@ -35,6 +35,10 @@ AC_ARG_ENABLE([hi3516],
 
 if test "x$enable_hi3518" = "xyes" && test "x$enable_hi3516" = "xyes"; then
    AC_MSG_ERROR([Can not enable hi3518 and hi3516 at same time.])
+fi
+
+if test "x$enable_hi3518" = "xno" && test "x$enable_hi3516" = "xno"; then
+   AC_MSG_ERROR([Can not continue if there is not select any chip.])
 fi
 
 AM_CONDITIONAL([HI3518], [test x"$enable_hi3518" = "xyes"])
@@ -57,7 +61,7 @@ dnl hisimpp detection.  swiped from Tor.  modified a bit.
 AC_CACHE_CHECK([for hisimpp directory], ac_cv_hisimpp_dir, [
   saved_LIBS="$LIBS"
   saved_LDFLAGS="$LDFLAGS"
-  saved_CPPFLAGS="$CPPFLAGS"
+  saved_CFLAGS="$CFLAGS"
   mpp_found=no
   for mppdir in $trymppdir "" $prefix /usr/local ; do
     LDFLAGS="$saved_LDFLAGS"
@@ -74,9 +78,9 @@ AC_CACHE_CHECK([for hisimpp directory], ac_cv_hisimpp_dir, [
         LDFLAGS="-L$mppdir $LDFLAGS"
       fi
       if test -d "$mppdir/include" ; then
-        CPPFLAGS="-I$mppdir/include $CPPFLAGS"
+        CFLAGS="-I$mppdir/include $CFLAGS"
       else
-        CPPFLAGS="-I$mppdir $CPPFLAGS"
+        CFLAGS="-I$mppdir $CFLAGS"
       fi
     fi
     # Can I compile and link it?
@@ -95,7 +99,7 @@ AC_CACHE_CHECK([for hisimpp directory], ac_cv_hisimpp_dir, [
   done
   LIBS="$saved_LIBS"
   LDFLAGS="$saved_LDFLAGS"
-  CPPFLAGS="$saved_CPPFLAGS"
+  CFLAGS="$saved_CFLAGS"
   if test $mpp_found = no ; then
     AC_MSG_ERROR([hisimpp is required.
  
@@ -114,10 +118,18 @@ if test $ac_cv_hisimpp_dir != "(system)"; then
   fi
   AC_SUBST(MPPLIBDIR)
   if test -d "$ac_cv_hisimpp_dir/include" ; then
-    CPPFLAGS="-I$ac_cv_hisimpp_dir/include $CPPFLAGS"
+    CFLAGS="-I$ac_cv_hisimpp_dir/include $CFLAGS"
   else
-    CPPFLAGS="-I$ac_cv_hisimpp_dir $CPPFLAGS"
+    CFLAGS="-I$ac_cv_hisimpp_dir $CFLAGS"
   fi
+fi
+
+if test "x$enable_hi3518" = "xyes"; then
+  CFLAGS="-DHI3518 $CFLAGS"
+fi
+
+if test "x$enable_hi3516" = "xyes"; then
+  CFLAGS="-DHI3516 $CFLAGS"
 fi
 
 fi
