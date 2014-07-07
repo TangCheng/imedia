@@ -23,7 +23,24 @@ LT_INIT
 
 PKG_CHECK_MODULES(IMEDIA, [json-glib-1.0 glib-2.0 gobject-2.0 libipcam_base-0.1.0 shm_queue-0.1.00 ])
 
+AC_ARG_ENABLE([hi3518],
+	AS_HELP_STRING([--enable-hi3518],[Build with hi3518 support (default: enabled)]),
+	[enable_hi3518=$enableval],
+	[enable_hi3518=yes])
 
+AC_ARG_ENABLE([hi3516],
+	AS_HELP_STRING([--enable-hi3516],[Build with hi3516 support (default: disabled)]),
+	[enable_hi3516=$enableval],
+	[enable_hi3516=no])
+
+if test "x$enable_hi3518" = "xyes" && test "x$enable_hi3516" = "xyes"; then
+   AC_MSG_ERROR([Can not enable hi3518 and hi3516 at same time.])
+fi
+
+AM_CONDITIONAL([HI3518], [test x"$enable_hi3518" = "xyes"])
+AM_CONDITIONAL([HI3516], [test x"$enable_hi3516" = "xyes"])
+
+if test "x$enable_hi3518" = "xyes" || test "x$enable_hi3516" = "xyes"; then
 trymppdir=""
 AC_ARG_WITH(hisimpp,
        [  --with-hisimpp=PATH     Specify path to hisi mpp installation ],
@@ -103,7 +120,7 @@ if test $ac_cv_hisimpp_dir != "(system)"; then
   fi
 fi
 
-
+fi
 
 AC_OUTPUT([
 Makefile

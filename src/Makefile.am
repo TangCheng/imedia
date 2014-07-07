@@ -18,13 +18,17 @@ bindir = $(prefix)/imedia
 bin_PROGRAMS = imedia
 
 imedia_SOURCES = \
-	hi3518/media_sys_ctrl.c \
-	hi3518/media_video_proc.c \
 	media_sys_ctrl_interface.c \
 	media_video_interface.c \
 	media_osd_interface.c \
 	imedia.c \
 	main.c
+
+if HI3518
+imedia_SOURCES += \
+	hi3518/media_sys_ctrl.c \
+	hi3518/media_video.c
+endif
 
 imedia_LDFLAGS = 
 

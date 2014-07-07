@@ -34,7 +34,7 @@
 #include <hi_sns_ctrl.h>
 #include <shm_queue.h>
 #include <shm_rr_queue.h>
-#include "media_video_proc.h"
+#include "media_video.h"
 
 enum
 {
@@ -43,26 +43,26 @@ enum
     N_PROPERTIES
 };
 
-typedef struct _IpcamMediaVideoProcPrivate
+typedef struct _IpcamMediaVideoPrivate
 {
     gchar *xx;
     IpcamShmRRQueue *video_pool;
 	pthread_t gs_IspPid;
-} IpcamMediaVideoProcPrivate;
+} IpcamMediaVideoPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(IpcamMediaVideoProc, ipcam_media_video_proc, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(IpcamMediaVideo, ipcam_media_video, G_TYPE_OBJECT)
 
 static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 
-static void ipcam_media_video_proc_finalize(GObject *object)
+static void ipcam_media_video_finalize(GObject *object)
 {
-    IpcamMediaVideoProcPrivate *priv = ipcam_media_video_proc_get_instance_private(self);
+    IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
     g_clear_object(&priv->video_pool);
-    G_OBJECT_CLASS(ipcam_media_video_proc_parent_class)->finalize(object);
+    G_OBJECT_CLASS(ipcam_media_video_parent_class)->finalize(object);
 }
-static void ipcam_media_video_proc_init(IpcamMediaVideoProc *self)
+static void ipcam_media_video_init(IpcamMediaVideo *self)
 {
-	IpcamMediaVideoProcPrivate *priv = ipcam_media_video_proc_get_instance_private(self);
+	IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
     priv->xx = NULL;
     priv->video_pool = g_object_new(IPCAM_SHM_RR_QUEUE_TYPE,
                                     "block-num", 10,
@@ -72,13 +72,13 @@ static void ipcam_media_video_proc_init(IpcamMediaVideoProc *self)
                                     NULL);
     ipcam_shm_rr_queue_open(queue, "/data/configuration.sqlite3", 0);
 }
-static void ipcam_media_video_proc_get_property(GObject    *object,
-                                                guint       property_id,
-                                                GValue     *value,
-                                                GParamSpec *pspec)
+static void ipcam_media_video_get_property(GObject    *object,
+                                           guint       property_id,
+                                           GValue     *value,
+                                           GParamSpec *pspec)
 {
-    IpcamMediaVideoProc *self = IPCAM_MEDIA_VIDEO_PROC(object);
-    IpcamMediaVideoProcPrivate *priv = ipcam_media_video_proc_get_instance_private(self);
+    IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
+    IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
     switch(property_id)
     {
     case PROP_XX:
@@ -91,13 +91,13 @@ static void ipcam_media_video_proc_get_property(GObject    *object,
         break;
     }
 }
-static void ipcam_media_video_proc_set_property(GObject      *object,
-                                                guint         property_id,
-                                                const GValue *value,
-                                                GParamSpec   *pspec)
+static void ipcam_media_video_set_property(GObject      *object,
+                                           guint         property_id,
+                                           const GValue *value,
+                                           GParamSpec   *pspec)
 {
-    IpcamMediaVideoProc *self = IPCAM_MEDIA_VIDEO_PROC(object);
-    IpcamMediaVideoProcPrivate *priv = ipcam_media_video_proc_get_instance_private(self);
+    IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
+    IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
     switch(property_id)
     {
     case PROP_XX:
@@ -111,11 +111,11 @@ static void ipcam_media_video_proc_set_property(GObject      *object,
         break;
     }
 }
-static void ipcam_media_video_proc_class_init(IpcamMediaVideoProcClass *klass)
+static void ipcam_media_video_class_init(IpcamMediaVideoClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
-    object_class->get_property = &ipcam_media_video_proc_get_property;
-    object_class->set_property = &ipcam_media_video_proc_set_property;
+    object_class->get_property = &ipcam_media_video_get_property;
+    object_class->set_property = &ipcam_media_video_set_property;
 
     obj_properties[PROP_XX] =
         g_param_spec_string("xx",
@@ -126,7 +126,7 @@ static void ipcam_media_video_proc_class_init(IpcamMediaVideoProcClass *klass)
 
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
 }
-HI_S32 ipcam_media_vidoe_proc_start_video_input_unit(IpcamMediaVideoProc *media_proc)
+HI_S32 ipcam_media_vidoe_proc_start_video_input_unit(IpcamMediaVideo *media_proc)
 {
     HI_S32 i, s32Ret = HI_SUCCESS;
     VI_DEV ViDev;
@@ -195,10 +195,10 @@ HI_S32 ipcam_media_vidoe_proc_start_video_input_unit(IpcamMediaVideoProc *media_
               if the sensor you used is different, you can change
               ISP_IMAGE_ATTR_S definition */
 
-            stImageAttr.enBayer      = BAYER_GRBG;
-            stImageAttr.u16FrameRate = 30;
-            stImageAttr.u16Width     = 1280;
-            stImageAttr.u16Height    = 720;
+    stImageAttr.enBayer      = BAYER_GRBG;
+    stImageAttr.u16FrameRate = 30;
+    stImageAttr.u16Width     = 1280;
+    stImageAttr.u16Height    = 720;
 
     s32Ret = HI_MPI_ISP_SetImageAttr(&stImageAttr);
     if (s32Ret != HI_SUCCESS)
@@ -207,7 +207,7 @@ HI_S32 ipcam_media_vidoe_proc_start_video_input_unit(IpcamMediaVideoProc *media_
         return s32Ret;
     }
 
-            stInputTiming.enWndMode = ISP_WIND_NONE;
+    stInputTiming.enWndMode = ISP_WIND_NONE;
     s32Ret = HI_MPI_ISP_SetInputTiming(&stInputTiming);
     if (s32Ret != HI_SUCCESS)
     {
@@ -311,7 +311,7 @@ HI_S32 ipcam_media_vidoe_proc_start_video_input_unit(IpcamMediaVideoProc *media_
     return s32Ret;
 }
     
-HI_S32 ipcam_media_vidoe_proc_stop_video_input_unit(IpcamMediaVideoProc *media_proc)
+HI_S32 ipcam_media_vidoe_proc_stop_video_input_unit(IpcamMediaVideo *media_proc)
 {
     VI_DEV ViDev;
     VI_CHN ViChn;
@@ -351,7 +351,7 @@ HI_S32 ipcam_media_vidoe_proc_stop_video_input_unit(IpcamMediaVideoProc *media_p
     return HI_SUCCESS;
 }
 
-HI_S32 ipcam_media_vidoe_proc_start_video_process_subsystem_unit(IpcamMediaVideoProc *media_proc)
+HI_S32 ipcam_media_vidoe_proc_start_video_process_subsystem_unit(IpcamMediaVideo *media_proc)
 {
     VPSS_GRP VpssGrp = 0;
     VPSS_CHN VpssChn = 0;
@@ -435,7 +435,7 @@ HI_S32 ipcam_media_vidoe_proc_start_video_process_subsystem_unit(IpcamMediaVideo
     return HI_SUCCESS;
 }
 
-HI_VOID ipcam_media_vidoe_proc_stop_video_process_subsystem_unit(IpcamMediaVideoProc *media_proc)
+HI_VOID ipcam_media_vidoe_proc_stop_video_process_subsystem_unit(IpcamMediaVideo *media_proc)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     VPSS_GRP VpssGrp = 0;
@@ -462,7 +462,7 @@ HI_VOID ipcam_media_vidoe_proc_stop_video_process_subsystem_unit(IpcamMediaVideo
     }
 }
 
-HI_S32 ipcam_media_vidoe_proc_start_video_encode_unit(IpcamMediaVideoProc *media_proc)
+HI_S32 ipcam_media_vidoe_proc_start_video_encode_unit(IpcamMediaVideo *media_proc)
 {
     HI_S32 s32Ret;
     VENC_GRP VeGroup = 0;
@@ -521,7 +521,7 @@ HI_S32 ipcam_media_vidoe_proc_start_video_encode_unit(IpcamMediaVideoProc *media
     return HI_SUCCESS;
 }
 
-HI_S32 ipcam_media_vidoe_proc_stop_video_encode_unit(IpcamMediaVideoProc *media_proc)
+HI_S32 ipcam_media_vidoe_proc_stop_video_encode_unit(IpcamMediaVideo *media_proc)
 {
     HI_S32 s32Ret;
     VENC_GRP VeGrp = 0;
@@ -574,7 +574,7 @@ HI_S32 ipcam_media_vidoe_proc_stop_video_encode_unit(IpcamMediaVideoProc *media_
     return HI_SUCCESS;
 }
 
-HI_S32 ipcam_media_vidoe_proc_vpss_bind_vi(IpcamMediaVideoProc *media_proc)
+HI_S32 ipcam_media_vidoe_proc_vpss_bind_vi(IpcamMediaVideo *media_proc)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     MPP_CHN_S stSrcChn;
@@ -597,7 +597,7 @@ HI_S32 ipcam_media_vidoe_proc_vpss_bind_vi(IpcamMediaVideoProc *media_proc)
     return s32Ret;
 }
 
-HI_S32 ipcam_media_vidoe_proc_venc_bind_vpss(IpcamMediaVideoProc *media_proc)
+HI_S32 ipcam_media_vidoe_proc_venc_bind_vpss(IpcamMediaVideo *media_proc)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     MPP_CHN_S stSrcChn;
@@ -775,7 +775,7 @@ HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
 }
 #endif
 
-HI_S32 ipcam_media_vidoe_proc_start_video_stream_proc(IpcamMediaVideoProc *media_proc)
+HI_S32 ipcam_media_vidoe_proc_start_video_stream_proc(IpcamMediaVideo *media_proc)
 {
     HI_S32 s32Ret;
     s32Ret = start_video_input_unit();
@@ -808,7 +808,7 @@ HI_S32 ipcam_media_vidoe_proc_start_video_stream_proc(IpcamMediaVideoProc *media
     return s32Ret;
 }
 
-HI_VOID ipcam_media_vidoe_proc_stop_video_stream_proc(IpcamMediaVideoProc *media_proc)
+HI_VOID ipcam_media_vidoe_proc_stop_video_stream_proc(IpcamMediaVideo *media_proc)
 {
     envir().taskScheduler().turnOffBackgroundReadHandling(vencFd);
     stop_video_encode_unit();

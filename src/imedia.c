@@ -1,5 +1,5 @@
 #include "imedia.h"
-#include "hi3518a/media_sys_ctrl.h"
+#include "hi3518/media_sys_ctrl.h"
 
 /*
 enum
