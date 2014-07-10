@@ -1,6 +1,11 @@
 #ifndef __STREAM_DESCRIPTOR_H__
 #define __STREAM_DESCRIPTOR_H__
 
+#include <glib.h>
+
+#define IMAGE_WIDTH          1280
+#define IMAGE_HEIGHT         720
+
 enum StreamType
 {
      AUDIO_STREAM = 0,

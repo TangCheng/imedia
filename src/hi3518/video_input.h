@@ -25,5 +25,7 @@ struct _IpcamVideoInputClass
 };
 
 GType ipcam_video_input_get_type(void);
+gint32 ipcam_video_input_start(IpcamVideoInput *self);
+gint32 ipcam_video_input_stop(IpcamVideoInput *self);
 
 #endif /* __VIDEO_INPUT_H__ */

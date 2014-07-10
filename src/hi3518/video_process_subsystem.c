@@ -1,45 +1,50 @@
 #include <hi_defines.h>
 #include <hi_comm_vpss.h>
 #include <mpi_vpss.h>
+#include "stream_descriptor.h"
 #include "video_process_subsystem.h"
 
-/*
 enum
 {
     PROP_0,
-    PROP_XX,
+    PROP_IMAGE_WIDTH,
+    PROP_IMAGE_HEIGHT,
     N_PROPERTIES
 };
-*/
 
 typedef struct _IpcamVideoProcessSubsystemPrivate
 {
-    gchar *xx;
+    guint32 image_width;
+    guint32 image_height;
 } IpcamVideoProcessSubsystemPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(IpcamVideoProcessSubsystem, ipcam_video_process_subsystem, G_TYPE_OBJECT)
-#define IMAGE_WIDTH          1280
-#define IMAGE_HEIGHT         720
-//static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
+
+static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 
 static void ipcam_video_process_subsystem_init(IpcamVideoProcessSubsystem *self)
 {
 	IpcamVideoProcessSubsystemPrivate *priv = ipcam_video_process_subsystem_get_instance_private(self);
-    priv->xx = NULL;
+    priv->image_width = IMAGE_WIDTH;
+    priv->image_height = IMAGE_HEIGHT;
 }
-/*
 static void ipcam_video_process_subsystem_get_property(GObject    *object,
-                                           guint       property_id,
-                                           GValue     *value,
-                                           GParamSpec *pspec)
+                                                       guint       property_id,
+                                                       GValue     *value,
+                                                       GParamSpec *pspec)
 {
     IpcamVideoProcessSubsystem *self = IPCAM_VIDEO_PROCESS_SUBSYSTEM(object);
     IpcamVideoProcessSubsystemPrivate *priv = ipcam_video_process_subsystem_get_instance_private(self);
     switch(property_id)
     {
-    case PROP_XX:
+    case PROP_IMAGE_WIDTH:
         {
-            g_value_set_string(value, priv->xx);
+            g_value_set_uint(value, priv->image_width);
+        }
+        break;
+    case PROP_IMAGE_HEIGHT:
+        {
+            g_value_set_uint(value, priv->image_height);
         }
         break;
     default:
@@ -48,18 +53,22 @@ static void ipcam_video_process_subsystem_get_property(GObject    *object,
     }
 }
 static void ipcam_video_process_subsystem_set_property(GObject      *object,
-                                           guint         property_id,
-                                           const GValue *value,
-                                           GParamSpec   *pspec)
+                                                       guint         property_id,
+                                                       const GValue *value,
+                                                       GParamSpec   *pspec)
 {
     IpcamVideoProcessSubsystem *self = IPCAM_VIDEO_PROCESS_SUBSYSTEM(object);
     IpcamVideoProcessSubsystemPrivate *priv = ipcam_video_process_subsystem_get_instance_private(self);
     switch(property_id)
     {
-    case PROP_XX:
+    case PROP_IMAGE_WIDTH:
         {
-            g_free(priv->xx);
-            priv->xx = g_value_dup_string(value);
+            priv->image_width = g_value_get_uint(value);
+        }
+        break;
+    case PROP_IMAGE_HEIGHT:
+        {
+            priv->image_height = g_value_get_uint(value);
         }
         break;
     default:
@@ -67,26 +76,33 @@ static void ipcam_video_process_subsystem_set_property(GObject      *object,
         break;
     }
 }
-*/
 static void ipcam_video_process_subsystem_class_init(IpcamVideoProcessSubsystemClass *klass)
 {
-/*
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
     object_class->get_property = &ipcam_video_process_subsystem_get_property;
     object_class->set_property = &ipcam_video_process_subsystem_set_property;
 
-    obj_properties[PROP_XX] =
-        g_param_spec_string("xx",
-                            "xxx",
-                            "xxx.",
-                            NULL, // default value
-                            G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
+    obj_properties[PROP_IMAGE_WIDTH] =
+        g_param_spec_uint("width",
+                          "Image width",
+                          "set video input unit image width.",
+                          640, // min value
+                          IMAGE_WIDTH, // max value
+                          IMAGE_WIDTH, // default value
+                          G_PARAM_READWRITE);
+    obj_properties[PROP_IMAGE_HEIGHT] =
+        g_param_spec_uint("height",
+                          "Image height",
+                          "set video input unit image height.",
+                          480, // min value
+                          IMAGE_HEIGHT, // max value
+                          IMAGE_HEIGHT, // default value
+                          G_PARAM_READWRITE);
 
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
-*/
 }
 
-static HI_S32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self)
+gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self)
 {
     VPSS_GRP VpssGrp = 0;
     VPSS_CHN VpssChn = 0;
@@ -94,15 +110,16 @@ static HI_S32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *se
     VPSS_CHN_ATTR_S stChnAttr;
     VPSS_GRP_PARAM_S stVpssParam;
     HI_S32 s32Ret;
+    IpcamVideoProcessSubsystemPrivate *priv = ipcam_video_process_subsystem_get_instance_private(self);
 
     /*** Set Vpss Grp Attr ***/
 
-    stGrpAttr.u32MaxW = IMAGE_WIDTH;
-    stGrpAttr.u32MaxH = IMAGE_HEIGHT;
-    stGrpAttr.bDrEn = HI_FALSE;
+    stGrpAttr.u32MaxW = priv->image_width;
+    stGrpAttr.u32MaxH = priv->image_height;
+    stGrpAttr.bDrEn = HI_TRUE;
     stGrpAttr.bDbEn = HI_FALSE;
     stGrpAttr.bIeEn = HI_FALSE;
-    stGrpAttr.bNrEn = HI_FALSE;
+    stGrpAttr.bNrEn = HI_TRUE;
     stGrpAttr.bHistEn = HI_FALSE;
     stGrpAttr.enDieMode = VPSS_DIE_MODE_AUTO;
     stGrpAttr.enPixFmt = PIXEL_FORMAT_YUV_SEMIPLANAR_422;
@@ -111,7 +128,7 @@ static HI_S32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *se
     s32Ret = HI_MPI_VPSS_CreateGrp(VpssGrp, &stGrpAttr);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("HI_MPI_VPSS_CreateGrp failed with %#x!\n", s32Ret);
+        g_critical("HI_MPI_VPSS_CreateGrp failed with %#x!\n", s32Ret);
         return HI_FAILURE;
     }
 
@@ -119,7 +136,7 @@ static HI_S32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *se
     s32Ret = HI_MPI_VPSS_GetGrpParam(VpssGrp, &stVpssParam);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("failed with %#x!\n", s32Ret);
+        g_critical("HI_MPI_VPSS_GetGrpParam failed with %#x!\n", s32Ret);
         return HI_FAILURE;
     }
         
@@ -128,7 +145,7 @@ static HI_S32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *se
     s32Ret = HI_MPI_VPSS_SetGrpParam(VpssGrp, &stVpssParam);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("failed with %#x!\n", s32Ret);
+        g_critical("HI_MPI_VPSS_SetGrpParam failed with %#x!\n", s32Ret);
         return HI_FAILURE;
     }
 
@@ -148,14 +165,14 @@ static HI_S32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *se
     s32Ret = HI_MPI_VPSS_SetChnAttr(VpssGrp, VpssChn, &stChnAttr);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("HI_MPI_VPSS_SetChnAttr failed with %#x\n", s32Ret);
+        g_critical("HI_MPI_VPSS_SetChnAttr failed with %#x\n", s32Ret);
         return HI_FAILURE;
     }
     
     s32Ret = HI_MPI_VPSS_EnableChn(VpssGrp, VpssChn);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("HI_MPI_VPSS_EnableChn failed with %#x\n", s32Ret);
+        g_critical("HI_MPI_VPSS_EnableChn failed with %#x\n", s32Ret);
         return HI_FAILURE;
     }
 
@@ -163,13 +180,13 @@ static HI_S32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *se
     s32Ret = HI_MPI_VPSS_StartGrp(VpssGrp);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("HI_MPI_VPSS_StartGrp failed with %#x\n", s32Ret);
+        g_critical("HI_MPI_VPSS_StartGrp failed with %#x\n", s32Ret);
         return HI_FAILURE;
     }
 
     return HI_SUCCESS;
 }
-static HI_S32 ipcam_video_process_subsystem_stop(IpcamVideoProcessSubsystem *self)
+gint32 ipcam_video_process_subsystem_stop(IpcamVideoProcessSubsystem *self)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     VPSS_GRP VpssGrp = 0;
@@ -178,20 +195,20 @@ static HI_S32 ipcam_video_process_subsystem_stop(IpcamVideoProcessSubsystem *sel
     s32Ret = HI_MPI_VPSS_StopGrp(VpssGrp);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("failed with %#x!\n", s32Ret);
+        g_critical("HI_MPI_VPSS_StopGrp failed with %#x!\n", s32Ret);
         return s32Ret;
     }
     s32Ret = HI_MPI_VPSS_DisableChn(VpssGrp, VpssChn);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("failed with %#x!\n", s32Ret);
+        g_critical("HI_MPI_VPSS_DisableChn failed with %#x!\n", s32Ret);
         return s32Ret;
     }
     
     s32Ret = HI_MPI_VPSS_DestroyGrp(VpssGrp);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("failed with %#x!\n", s32Ret);
+        g_critical("HI_MPI_VPSS_DestroyGrp failed with %#x!\n", s32Ret);
         return s32Ret;
     }
 

@@ -5,6 +5,7 @@
 #include <mpi_awb.h>
 #include <mpi_af.h>
 #include <hi_sns_ctrl.h>
+#include <string.h>
 #include "isp.h"
 
 /*
@@ -87,7 +88,7 @@ static void ipcam_isp_class_init(IpcamIspClass *klass)
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
 */
 }
-static HI_S32 ipcam_isp_start(IpcamIsp *self)
+gint32 ipcam_isp_start(IpcamIsp *self)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
@@ -99,8 +100,7 @@ static HI_S32 ipcam_isp_start(IpcamIsp *self)
     s32Ret = sensor_register_callback();
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("%s: sensor_register_callback failed with %#x!\n", \
-               __FUNCTION__, s32Ret);
+        g_critical("%s: sensor_register_callback failed with %#x!\n", __FUNCTION__, s32Ret);
         return s32Ret;
     }
     sensor_init();
@@ -116,7 +116,7 @@ static HI_S32 ipcam_isp_start(IpcamIsp *self)
     s32Ret = HI_MPI_AE_Register(&stLib);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("%s: HI_MPI_AE_Register failed!\n", __FUNCTION__);
+        g_critical("%s: HI_MPI_AE_Register failed with %#x!\n", __FUNCTION__, s32Ret);
         return s32Ret;
     }
 
@@ -126,7 +126,7 @@ static HI_S32 ipcam_isp_start(IpcamIsp *self)
     s32Ret = HI_MPI_AWB_Register(&stLib);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("%s: HI_MPI_AWB_Register failed!\n", __FUNCTION__);
+        g_critical("%s: HI_MPI_AWB_Register failed with %#x!\n", __FUNCTION__, s32Ret);
         return s32Ret;
     }
 
@@ -136,7 +136,7 @@ static HI_S32 ipcam_isp_start(IpcamIsp *self)
     s32Ret = HI_MPI_AF_Register(&stLib);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("%s: HI_MPI_AF_Register failed!\n", __FUNCTION__);
+        g_critical("%s: HI_MPI_AF_Register failed with %#x!\n", __FUNCTION__, s32Ret);
         return s32Ret;
     }
 
@@ -144,7 +144,7 @@ static HI_S32 ipcam_isp_start(IpcamIsp *self)
     s32Ret = HI_MPI_ISP_Init();
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("%s: HI_MPI_ISP_Init failed!\n", __FUNCTION__);
+        g_critical("%s: HI_MPI_ISP_Init failed with %#x!\n", __FUNCTION__, s32Ret);
         return s32Ret;
     }
 
@@ -161,7 +161,7 @@ static HI_S32 ipcam_isp_start(IpcamIsp *self)
     s32Ret = HI_MPI_ISP_SetImageAttr(&stImageAttr);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("%s: HI_MPI_ISP_SetImageAttr failed with %#x!\n", __FUNCTION__, s32Ret);
+        g_critical("%s: HI_MPI_ISP_SetImageAttr failed with %#x!\n", __FUNCTION__, s32Ret);
         return s32Ret;
     }
 
@@ -169,17 +169,19 @@ static HI_S32 ipcam_isp_start(IpcamIsp *self)
     s32Ret = HI_MPI_ISP_SetInputTiming(&stInputTiming);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("%s: HI_MPI_ISP_SetInputTiming failed with %#x!\n", __FUNCTION__, s32Ret);
+        g_critical("%s: HI_MPI_ISP_SetInputTiming failed with %#x!\n", __FUNCTION__, s32Ret);
         return s32Ret;
     }
 
     if (0 != pthread_create(&priv->IspPid, 0, (void* (*)(void*))HI_MPI_ISP_Run, NULL))
     {
-        g_print("%s: create isp running thread failed!\n", __FUNCTION__);
+        g_critical("%s: create isp running thread failed!\n", __FUNCTION__);
         return HI_FAILURE;
     }
+
+    return HI_SUCCESS;
 }
-static void ipcam_isp_stop(IpcamIsp *self)
+void ipcam_isp_stop(IpcamIsp *self)
 {
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
     HI_MPI_ISP_Exit();

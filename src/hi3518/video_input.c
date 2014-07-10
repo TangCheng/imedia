@@ -1,33 +1,33 @@
 #include <hi_defines.h>
 #include <hi_comm_vi.h>
 #include <mpi_vi.h>
+#include "stream_descriptor.h"
 #include "video_input.h"
 
-/*
 enum
 {
     PROP_0,
-    PROP_XX,
+    PROP_IMAGE_WIDTH,
+    PROP_IMAGE_HEIGHT,
     N_PROPERTIES
 };
-*/
 
 typedef struct _IpcamVideoInputPrivate
 {
-    gchar *xx;
+    guint32 image_width;
+    guint32 image_height;
 } IpcamVideoInputPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(IpcamVideoInput, ipcam_video_input, G_TYPE_OBJECT)
-#define IMAGE_WIDTH          1280
-#define IMAGE_HEIGHT         720
-//static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
+
+static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 
 static void ipcam_video_input_init(IpcamVideoInput *self)
 {
 	IpcamVideoInputPrivate *priv = ipcam_video_input_get_instance_private(self);
-    priv->xx = NULL;
+    priv->image_width = IMAGE_WIDTH;
+    priv->image_height = IMAGE_HEIGHT;
 }
-/*
 static void ipcam_video_input_get_property(GObject    *object,
                                            guint       property_id,
                                            GValue     *value,
@@ -37,9 +37,14 @@ static void ipcam_video_input_get_property(GObject    *object,
     IpcamVideoInputPrivate *priv = ipcam_video_input_get_instance_private(self);
     switch(property_id)
     {
-    case PROP_XX:
+    case PROP_IMAGE_WIDTH:
         {
-            g_value_set_string(value, priv->xx);
+            g_value_set_uint(value, priv->image_width);
+        }
+        break;
+    case PROP_IMAGE_HEIGHT:
+        {
+            g_value_set_uint(value, priv->image_height);
         }
         break;
     default:
@@ -56,10 +61,14 @@ static void ipcam_video_input_set_property(GObject      *object,
     IpcamVideoInputPrivate *priv = ipcam_video_input_get_instance_private(self);
     switch(property_id)
     {
-    case PROP_XX:
+    case PROP_IMAGE_WIDTH:
         {
-            g_free(priv->xx);
-            priv->xx = g_value_dup_string(value);
+            priv->image_width = g_value_get_uint(value);
+        }
+        break;
+    case PROP_IMAGE_HEIGHT:
+        {
+            priv->image_height = g_value_get_uint(value);
         }
         break;
     default:
@@ -67,35 +76,41 @@ static void ipcam_video_input_set_property(GObject      *object,
         break;
     }
 }
-*/
 static void ipcam_video_input_class_init(IpcamVideoInputClass *klass)
 {
-/*
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
     object_class->get_property = &ipcam_video_input_get_property;
     object_class->set_property = &ipcam_video_input_set_property;
 
-    obj_properties[PROP_XX] =
-        g_param_spec_string("xx",
-                            "xxx",
-                            "xxx.",
-                            NULL, // default value
-                            G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
+    obj_properties[PROP_IMAGE_WIDTH] =
+        g_param_spec_uint("width",
+                          "Image width",
+                          "set video input unit image width.",
+                          640, // min value
+                          IMAGE_WIDTH, // max value
+                          IMAGE_WIDTH, // default value
+                          G_PARAM_READWRITE);
+    obj_properties[PROP_IMAGE_HEIGHT] =
+        g_param_spec_uint("height",
+                          "Image height",
+                          "set video input unit image height.",
+                          480, // min value
+                          IMAGE_HEIGHT, // max value
+                          IMAGE_HEIGHT, // default value
+                          G_PARAM_READWRITE);
 
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
-*/
 }
 
-static HI_S32 ipcam_video_input_start(IpcamVideoInput *self)
+gint32 ipcam_video_input_start(IpcamVideoInput *self)
 {
     HI_S32 i, s32Ret = HI_SUCCESS;
     VI_DEV ViDev;
     VI_CHN ViChn;
     HI_U32 u32DevNum = 1;
     HI_U32 u32ChnNum = 1;
-
+    IpcamVideoInputPrivate *priv = ipcam_video_input_get_instance_private(self);
     
-
     /******************************************************
      step 3 : config & start vicap dev
     ******************************************************/
@@ -106,7 +121,7 @@ static HI_S32 ipcam_video_input_start(IpcamVideoInput *self)
             {
                 VI_MODE_DIGITAL_CAMERA,
                 VI_WORK_MODE_1Multiplex,
-                {0xFF000000, 0x00},
+                {0xFFF00000, 0x00},
                 VI_SCAN_PROGRESSIVE,
                 {-1, -1, -1, -1},
                 VI_INPUT_DATA_UYVY,
@@ -118,33 +133,33 @@ static HI_S32 ipcam_video_input_start(IpcamVideoInput *self)
                     VI_VSYNC_VALID_SINGAL,
                     VI_VSYNC_VALID_NEG_HIGH,
                     {
-                        4,
-                        IMAGE_WIDTH,
-                        544,
-                        4,
-                        IMAGE_HEIGHT,
-                        20,
+                        0,
+                        priv->image_width,
+                        0,
+                        0,
+                        priv->image_height,
+                        0,
                         0,
                         0,
                         0
                     }
                 },
                 VI_PATH_ISP,
-                VI_DATA_TYPE_YUV,
+                VI_DATA_TYPE_RGB,
                 HI_FALSE
             };
         
         s32Ret = HI_MPI_VI_SetDevAttr(ViDev, &stViDevAttr);
         if (s32Ret != HI_SUCCESS)
         {
-            g_print("HI_MPI_VI_SetDevAttrEx [%d] failed with %#x!\n", ViDev, s32Ret);
+            g_critical("HI_MPI_VI_SetDevAttrEx [%d] failed with %#x!\n", ViDev, s32Ret);
             return HI_FAILURE;
         }
 
         s32Ret = HI_MPI_VI_EnableDev(ViDev);
         if (s32Ret != HI_SUCCESS)
         {
-            g_print("HI_MPI_VI_EnableDev [%d] failed with %#x!\n", ViDev, s32Ret);
+            g_critical("HI_MPI_VI_EnableDev [%d] failed with %#x!\n", ViDev, s32Ret);
             return HI_FAILURE;
         }
     }
@@ -157,8 +172,8 @@ static HI_S32 ipcam_video_input_start(IpcamVideoInput *self)
         ViChn = i;
         VI_CHN_ATTR_S stChnAttr =
             {
-                {0, 0, IMAGE_WIDTH, IMAGE_HEIGHT},
-                {IMAGE_WIDTH, IMAGE_HEIGHT},
+                {0, 0, priv->image_width, priv->image_height},
+                {priv->image_width, priv->image_height},
                 VI_CAPSEL_BOTH,
                 PIXEL_FORMAT_YUV_SEMIPLANAR_422,
                 HI_FALSE,
@@ -171,21 +186,21 @@ static HI_S32 ipcam_video_input_start(IpcamVideoInput *self)
         s32Ret = HI_MPI_VI_SetChnAttr(ViChn, &stChnAttr);
         if (s32Ret != HI_SUCCESS)
         {
-            g_print("failed with %#x!\n", s32Ret);
+            g_critical("HI_MPI_VI_SetChnAttr [%d] failed with %#x!\n", ViChn, s32Ret);
             return HI_FAILURE;
         }
 
         s32Ret = HI_MPI_VI_EnableChn(ViChn);
         if (s32Ret != HI_SUCCESS)
         {
-            g_print("failed with %#x!\n", s32Ret);
+            g_critical("HI_MPI_VI_Enable [%d] failed with %#x!\n", ViChn, s32Ret);
             return HI_FAILURE;
         }
     }
 
     return s32Ret;
 }
-static HI_S32 ipcam_video_input_stop(IpcamVideoInput *self)
+gint32 ipcam_video_input_stop(IpcamVideoInput *self)
 {
     VI_DEV ViDev;
     VI_CHN ViChn;
@@ -202,7 +217,7 @@ static HI_S32 ipcam_video_input_stop(IpcamVideoInput *self)
         s32Ret = HI_MPI_VI_DisableChn(ViChn);
         if (HI_SUCCESS != s32Ret)
         {
-            g_print("HI_MPI_VI_DisableChn failed with %#x\n",s32Ret);
+            g_critical("HI_MPI_VI_DisableChn [%d] failed with %#x\n", ViChn, s32Ret);
             return HI_FAILURE;
         }
     }
@@ -214,7 +229,7 @@ static HI_S32 ipcam_video_input_stop(IpcamVideoInput *self)
         s32Ret = HI_MPI_VI_DisableDev(ViDev);
         if (HI_SUCCESS != s32Ret)
         {
-            g_print("HI_MPI_VI_DisableDev failed with %#x\n", s32Ret);
+            g_critical("HI_MPI_VI_DisableDev [%d] failed with %#x\n", ViDev, s32Ret);
             return HI_FAILURE;
         }
     }

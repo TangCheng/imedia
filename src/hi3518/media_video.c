@@ -6,6 +6,7 @@
 #include <mpi_sys.h>
 #include <shm_queue.h>
 #include <shm_rr_queue.h>
+#include "media_video_interface.h"
 #include "media_video.h"
 
 enum
@@ -21,7 +22,11 @@ typedef struct _IpcamMediaVideoPrivate
     IpcamShmRRQueue *video_pool;
 } IpcamMediaVideoPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(IpcamMediaVideo, ipcam_media_video, G_TYPE_OBJECT)
+static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface);
+
+G_DEFINE_TYPE_WITH_CODE(IpcamMediaVideo, ipcam_media_video, G_TYPE_OBJECT,
+                        G_IMPLEMENT_INTERFACE(IPCAM_TYPE_IVIDEO,
+                                              ipcam_ivideo_interface_init));
 
 static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 
@@ -84,6 +89,7 @@ static void ipcam_media_video_set_property(GObject      *object,
 }
 static void ipcam_media_video_class_init(IpcamMediaVideoClass *klass)
 {
+    g_type_class_add_private(klass, sizeof(IpcamMediaVideoPrivate));
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
     object_class->get_property = &ipcam_media_video_get_property;
     object_class->set_property = &ipcam_media_video_set_property;
@@ -513,3 +519,6 @@ HI_VOID ipcam_media_vidoe_proc_stop_video_stream_proc(IpcamMediaVideo *media_pro
         FramedSource::afterGetting(this);
 }
 #endif
+static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface)
+{
+}

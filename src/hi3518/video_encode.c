@@ -1,46 +1,51 @@
 #include <hi_defines.h>
 #include <hi_comm_venc.h>
 #include <mpi_venc.h>
+#include <memory.h>
+#include "stream_descriptor.h"
 #include "video_encode.h"
 
-/*
 enum
 {
     PROP_0,
-    PROP_XX,
+    PROP_IMAGE_WIDTH,
+    PROP_IMAGE_HEIGHT,
     N_PROPERTIES
 };
-*/
 
 typedef struct _IpcamVideoEncodePrivate
 {
-    gchar *xx;
+    guint32 image_width;
+    guint32 image_height;
 } IpcamVideoEncodePrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(IpcamVideoEncode, ipcam_video_encode, G_TYPE_OBJECT)
 
-//static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
-#define IMAGE_WIDTH          1280
-#define IMAGE_HEIGHT         720
+static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 
 static void ipcam_video_encode_init(IpcamVideoEncode *self)
 {
 	IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
-    priv->xx = NULL;
+    priv->image_width = IMAGE_WIDTH;
+    priv->image_height = IMAGE_HEIGHT;
 }
-/*
 static void ipcam_video_encode_get_property(GObject    *object,
-                                           guint       property_id,
-                                           GValue     *value,
-                                           GParamSpec *pspec)
+                                            guint       property_id,
+                                            GValue     *value,
+                                            GParamSpec *pspec)
 {
     IpcamVideoEncode *self = IPCAM_VIDEO_ENCODE(object);
     IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
     switch(property_id)
     {
-    case PROP_XX:
+    case PROP_IMAGE_WIDTH:
         {
-            g_value_set_string(value, priv->xx);
+            g_value_set_uint(value, priv->image_width);
+        }
+        break;
+    case PROP_IMAGE_HEIGHT:
+        {
+            g_value_set_uint(value, priv->image_height);
         }
         break;
     default:
@@ -57,10 +62,14 @@ static void ipcam_video_encode_set_property(GObject      *object,
     IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
     switch(property_id)
     {
-    case PROP_XX:
+    case PROP_IMAGE_WIDTH:
         {
-            g_free(priv->xx);
-            priv->xx = g_value_dup_string(value);
+            priv->image_width = g_value_get_uint(value);
+        }
+        break;
+    case PROP_IMAGE_HEIGHT:
+        {
+            priv->image_height = g_value_get_uint(value);
         }
         break;
     default:
@@ -68,40 +77,49 @@ static void ipcam_video_encode_set_property(GObject      *object,
         break;
     }
 }
-*/
 static void ipcam_video_encode_class_init(IpcamVideoEncodeClass *klass)
 {
-/*
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
     object_class->get_property = &ipcam_video_encode_get_property;
     object_class->set_property = &ipcam_video_encode_set_property;
 
-    obj_properties[PROP_XX] =
-        g_param_spec_string("xx",
-                            "xxx",
-                            "xxx.",
-                            NULL, // default value
-                            G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
+    obj_properties[PROP_IMAGE_WIDTH] =
+        g_param_spec_uint("width",
+                          "Image width",
+                          "set video input unit image width.",
+                          640, // min value
+                          IMAGE_WIDTH, // max value
+                          IMAGE_WIDTH, // default value
+                          G_PARAM_READWRITE);
+    obj_properties[PROP_IMAGE_HEIGHT] =
+        g_param_spec_uint("height",
+                          "Image height",
+                          "set video input unit image height.",
+                          480, // min value
+                          IMAGE_HEIGHT, // max value
+                          IMAGE_HEIGHT, // default value
+                          G_PARAM_READWRITE);
 
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
-*/
 }
 
-static HI_S32 ipcam_video_encode_start(IpcamVideoEncode *self)
+gint32 ipcam_video_encode_start(IpcamVideoEncode *self)
 {
     HI_S32 s32Ret;
     VENC_GRP VeGroup = 0;
     VENC_CHN VeChn = 0;
     VENC_CHN_ATTR_S stAttr;
+    IpcamVideoEncodePrivate *priv = ipcam_video_encode_get_instance_private(self);
+    
     /* set h264 chnnel video encode attribute */
     memset(&stAttr, 0, sizeof(VENC_CHN_ATTR_S));
     stAttr.stVeAttr.enType = PT_H264;
-    stAttr.stVeAttr.stAttrH264e.u32PicWidth = IMAGE_WIDTH;
-    stAttr.stVeAttr.stAttrH264e.u32PicHeight = IMAGE_HEIGHT;
-    stAttr.stVeAttr.stAttrH264e.u32MaxPicWidth = IMAGE_WIDTH;
-    stAttr.stVeAttr.stAttrH264e.u32MaxPicHeight = IMAGE_HEIGHT;
+    stAttr.stVeAttr.stAttrH264e.u32PicWidth = priv->image_width;
+    stAttr.stVeAttr.stAttrH264e.u32PicHeight = priv->image_height;
+    stAttr.stVeAttr.stAttrH264e.u32MaxPicWidth = priv->image_width;
+    stAttr.stVeAttr.stAttrH264e.u32MaxPicHeight = priv->image_height;
     stAttr.stVeAttr.stAttrH264e.u32Profile = 0;
-    stAttr.stVeAttr.stAttrH264e.u32BufSize  = IMAGE_WIDTH * IMAGE_HEIGHT * 2;/*stream buffer size*/
+    stAttr.stVeAttr.stAttrH264e.u32BufSize  = priv->image_width * priv->image_height * 2;/*stream buffer size*/
     stAttr.stVeAttr.stAttrH264e.u32Profile  = 0;/*0: baseline; 1:MP; 2:HP   ? */
     stAttr.stVeAttr.stAttrH264e.bByFrame = HI_FALSE;/*get stream mode is slice mode or frame mode?*/
     stAttr.stVeAttr.stAttrH264e.bField = HI_FALSE;  /* surpport frame code only for hi3516, bfield = HI_FALSE */
@@ -121,31 +139,31 @@ static HI_S32 ipcam_video_encode_start(IpcamVideoEncode *self)
     s32Ret = HI_MPI_VENC_CreateGroup(VeGroup);
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_VENC_CreateGroup err 0x%x\n",s32Ret);
+        g_critical("HI_MPI_VENC_CreateGroup err 0x%x\n",s32Ret);
         return HI_FAILURE;
     }
     s32Ret = HI_MPI_VENC_CreateChn(VeChn, &stAttr);
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_VENC_CreateChn err 0x%x\n",s32Ret);
+        g_critical("HI_MPI_VENC_CreateChn err 0x%x\n",s32Ret);
         return HI_FAILURE;
     }
     s32Ret = HI_MPI_VENC_RegisterChn(VeGroup, VeChn);
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_VENC_RegisterChn err 0x%x\n",s32Ret);
+        g_critical("HI_MPI_VENC_RegisterChn err 0x%x\n",s32Ret);
         return HI_FAILURE;
     }
     s32Ret = HI_MPI_VENC_StartRecvPic(VeChn);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("HI_MPI_VENC_StartRecvPic err 0x%x\n",s32Ret);
+        g_critical("HI_MPI_VENC_StartRecvPic err 0x%x\n",s32Ret);
         return HI_FAILURE;
     }
     // omit other code here.
     return HI_SUCCESS;
 }
-static HI_S32 ipcam_video_encode_stop(IpcamVideoEncode *self)
+gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
 {
     HI_S32 s32Ret;
     VENC_GRP VeGrp = 0;
@@ -157,8 +175,8 @@ static HI_S32 ipcam_video_encode_stop(IpcamVideoEncode *self)
     s32Ret = HI_MPI_VENC_StopRecvPic(VeChn);
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_VENC_StopRecvPic vechn[%d] failed with %#x!\n",\
-               VeChn, s32Ret);
+        g_critical("HI_MPI_VENC_StopRecvPic vechn[%d] failed with %#x!\n", \
+                   VeChn, s32Ret);
         return HI_FAILURE;
     }
 
@@ -168,8 +186,8 @@ static HI_S32 ipcam_video_encode_stop(IpcamVideoEncode *self)
     s32Ret = HI_MPI_VENC_UnRegisterChn(VeChn);
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_VENC_UnRegisterChn vechn[%d] failed with %#x!\n",\
-               VeChn, s32Ret);
+        g_critical("HI_MPI_VENC_UnRegisterChn vechn[%d] failed with %#x!\n", \
+                   VeChn, s32Ret);
         return HI_FAILURE;
     }
 
@@ -179,8 +197,8 @@ static HI_S32 ipcam_video_encode_stop(IpcamVideoEncode *self)
     s32Ret = HI_MPI_VENC_DestroyChn(VeChn);
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_VENC_DestroyChn vechn[%d] failed with %#x!\n",\
-               VeChn, s32Ret);
+        g_critical("HI_MPI_VENC_DestroyChn vechn[%d] failed with %#x!\n", \
+                   VeChn, s32Ret);
         return HI_FAILURE;
     }
 
@@ -190,8 +208,8 @@ static HI_S32 ipcam_video_encode_stop(IpcamVideoEncode *self)
     s32Ret = HI_MPI_VENC_DestroyGroup(VeGrp);
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_VENC_DestroyGroup group[%d] failed with %#x!\n",\
-               VeGrp, s32Ret);
+        g_critical("HI_MPI_VENC_DestroyGroup group[%d] failed with %#x!\n", \
+                   VeGrp, s32Ret);
         return HI_FAILURE;
     }
 
