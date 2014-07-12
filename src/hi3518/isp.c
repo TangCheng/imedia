@@ -1,95 +1,110 @@
 #include <hi_defines.h>
-#include <hi_comm_isp.h>
+#include <hi_comm_3a.h>
+#include <hi_ae_comm.h>
+#include <hi_awb_comm.h>
+#include <hi_af_comm.h>
 #include <mpi_isp.h>
 #include <mpi_ae.h>
 #include <mpi_awb.h>
 #include <mpi_af.h>
 #include <hi_sns_ctrl.h>
+#include <stdlib.h>
 #include <string.h>
+#include <dlfcn.h>
 #include "isp.h"
-
-/*
-enum
-{
-    PROP_0,
-    PROP_XX,
-    N_PROPERTIES
-};
-*/
 
 typedef struct _IpcamIspPrivate
 {
+    gchar *sensor_type;
+    void *sensor_lib_handle;
+    gint32 (*sensor_register_callback)();
     pthread_t IspPid;
 } IpcamIspPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(IpcamIsp, ipcam_isp, G_TYPE_OBJECT)
 
-//static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
-
 static void ipcam_isp_init(IpcamIsp *self)
 {
 	IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
+    priv->sensor_type = NULL;
+    priv->sensor_lib_handle = NULL;
 }
-/*
-static void ipcam_isp_get_property(GObject    *object,
-                                           guint       property_id,
-                                           GValue     *value,
-                                           GParamSpec *pspec)
-{
-    IpcamIsp *self = IPCAM_ISP(object);
-    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
-    switch(property_id)
-    {
-    case PROP_XX:
-        {
-            g_value_set_string(value, priv->xx);
-        }
-        break;
-    default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-        break;
-    }
-}
-static void ipcam_isp_set_property(GObject      *object,
-                                           guint         property_id,
-                                           const GValue *value,
-                                           GParamSpec   *pspec)
-{
-    IpcamIsp *self = IPCAM_ISP(object);
-    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
-    switch(property_id)
-    {
-    case PROP_XX:
-        {
-            g_free(priv->xx);
-            priv->xx = g_value_dup_string(value);
-        }
-        break;
-    default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-        break;
-    }
-}
-*/
 static void ipcam_isp_class_init(IpcamIspClass *klass)
 {
-/*
-    GObjectClass *object_class = G_OBJECT_CLASS(klass);
-    object_class->get_property = &ipcam_isp_get_property;
-    object_class->set_property = &ipcam_isp_set_property;
+}
+static gint32 ipcam_isp_load_sensor_lib(IpcamIsp *self)
+{
+    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
+    gchar *error;
+    priv->sensor_type = getenv("SENSOR_TYPE");
+    if (NULL == priv->sensor_type)
+    {
+        g_critical("%s: sensor type undefined!\n", __FUNCTION__);
+        return HI_FAILURE;
+    }
 
-    obj_properties[PROP_XX] =
-        g_param_spec_string("xx",
-                            "xxx",
-                            "xxx.",
-                            NULL, // default value
-                            G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
+    if (g_str_equal(priv->sensor_type, "AR0130"))
+    {
+        priv->sensor_lib_handle = dlopen("/usr/lib/libsns_ar0130_720p.so", RTLD_LAZY);
+    }
+    else if (g_str_equal(priv->sensor_type, "AR0331"))
+    {
+        priv->sensor_lib_handle = dlopen("/usr/lib/libsns_ar0331_1080p.so", RTLD_LAZY);
+    }
+    else if (g_str_equal(priv->sensor_type, "NT99141"))
+    {
+        priv->sensor_lib_handle = dlopen("/usr/lib/libsns_nt99141.so", RTLD_LAZY);
+    }
+    else
+    {
+        g_warning("Unknown sensor type %s\n!", priv->sensor_type);
+    }
+    if (priv->sensor_lib_handle)
+    {
+        priv->sensor_register_callback = dlsym(priv->sensor_lib_handle, "sensor_register_callback");
+        error = dlerror();
+        if (NULL != error)
+        {
+            g_critical("%s: get sensor_register_callback failed with %s!\n", __FUNCTION__, error);
+            return HI_FAILURE;
+        }
+    }
+    return priv->sensor_lib_handle ? HI_SUCCESS : HI_FAILURE;
+}
+static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImageAttr)
+{
+    IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
 
-    g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
-*/
+    if (g_str_equal(priv->sensor_type, "AR0130"))
+    {
+        pstImageAttr->enBayer      = BAYER_GRBG;
+        pstImageAttr->u16FrameRate = 30;
+        pstImageAttr->u16Width     = 1280;
+        pstImageAttr->u16Height    = 720;
+    }
+    else if (g_str_equal(priv->sensor_type, "AR0331"))
+    {
+        pstImageAttr->enBayer      = BAYER_GRBG;
+        pstImageAttr->u16FrameRate = 30;
+        pstImageAttr->u16Width     = 1920;
+        pstImageAttr->u16Height    = 1080;
+    }
+    else if (g_str_equal(priv->sensor_type, "NT99141"))
+    {
+        pstImageAttr->enBayer      = BAYER_GRBG;
+        pstImageAttr->u16FrameRate = 30;
+        pstImageAttr->u16Width     = 1280;
+        pstImageAttr->u16Height    = 720;
+    }
+    else
+    {
+        // never run to here, but we must shut compiler up.
+        g_warning("Unknown sensor type %s\n!", priv->sensor_type);
+    }
 }
 gint32 ipcam_isp_start(IpcamIsp *self)
 {
+    g_return_val_if_fail(IPCAM_IS_ISP(self), HI_FAILURE);
     HI_S32 s32Ret = HI_SUCCESS;
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
     
@@ -97,13 +112,19 @@ gint32 ipcam_isp_start(IpcamIsp *self)
      step 1: configure sensor.
      note: you can jump over this step, if you do not use Hi3518 interal isp. 
     ******************************************/
-    s32Ret = sensor_register_callback();
+    s32Ret = ipcam_isp_load_sensor_lib(self);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("%s: ipcam_isp_load_sensor_lib failed!\n", __FUNCTION__);
+        return s32Ret;
+    }
+    
+    s32Ret = (*priv->sensor_register_callback)();
     if (s32Ret != HI_SUCCESS)
     {
         g_critical("%s: sensor_register_callback failed with %#x!\n", __FUNCTION__, s32Ret);
         return s32Ret;
     }
-    sensor_init();
 
 	ISP_IMAGE_ATTR_S stImageAttr;
     ISP_INPUT_TIMING_S stInputTiming;
@@ -152,11 +173,7 @@ gint32 ipcam_isp_start(IpcamIsp *self)
     /* note : different sensor, different ISP_IMAGE_ATTR_S define.
               if the sensor you used is different, you can change
               ISP_IMAGE_ATTR_S definition */
-
-    stImageAttr.enBayer      = BAYER_GRBG;
-    stImageAttr.u16FrameRate = 30;
-    stImageAttr.u16Width     = 1280;
-    stImageAttr.u16Height    = 720;
+    ipcam_isp_init_image_attr(self, &stImageAttr);
 
     s32Ret = HI_MPI_ISP_SetImageAttr(&stImageAttr);
     if (s32Ret != HI_SUCCESS)
@@ -183,7 +200,15 @@ gint32 ipcam_isp_start(IpcamIsp *self)
 }
 void ipcam_isp_stop(IpcamIsp *self)
 {
+    g_return_if_fail(IPCAM_IS_ISP(self));
     IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
     HI_MPI_ISP_Exit();
     pthread_join(priv->IspPid, 0);
+
+    if (priv->sensor_lib_handle)
+    {
+        dlclose(priv->sensor_lib_handle);
+        priv->sensor_lib_handle = NULL;
+    }
+    priv->sensor_type = NULL;
 }

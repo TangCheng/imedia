@@ -2,12 +2,19 @@
 #include <hi_type.h>
 #include <hi_defines.h>
 #include <hi_comm_sys.h>
+#include <hi_comm_venc.h>
 //#include <mpi_region.h>
 #include <mpi_sys.h>
+#include <mpi_venc.h>
 #include <shm_queue.h>
 #include <shm_rr_queue.h>
+#include "stream_descriptor.h"
 #include "media_video_interface.h"
 #include "media_video.h"
+#include "isp.h"
+#include "video_input.h"
+#include "video_encode.h"
+#include "video_process_subsystem.h"
 
 enum
 {
@@ -20,9 +27,16 @@ typedef struct _IpcamMediaVideoPrivate
 {
     gchar *xx;
     IpcamShmRRQueue *video_pool;
+    IpcamIsp *isp;
+    IpcamVideoInput *vi;
+    IpcamVideoProcessSubsystem *vpss;
+    IpcamVideoEncode *venc;
+    gboolean livestream_flag;
+    GThread *livestream;
 } IpcamMediaVideoPrivate;
 
 static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface);
+static gpointer ipcam_media_video_livestream(gpointer data);
 
 G_DEFINE_TYPE_WITH_CODE(IpcamMediaVideo, ipcam_media_video, G_TYPE_OBJECT,
                         G_IMPLEMENT_INTERFACE(IPCAM_TYPE_IVIDEO,
@@ -33,7 +47,12 @@ static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 static void ipcam_media_video_finalize(GObject *object)
 {
     IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(IPCAM_MEDIA_VIDEO(object));
+    ipcam_shm_rr_queue_close(priv->video_pool);
     g_clear_object(&priv->video_pool);
+    g_clear_object(&priv->isp);
+    g_clear_object(&priv->vi);
+    g_clear_object(&priv->vpss);
+    g_clear_object(&priv->venc);
     G_OBJECT_CLASS(ipcam_media_video_parent_class)->finalize(object);
 }
 static void ipcam_media_video_init(IpcamMediaVideo *self)
@@ -47,6 +66,11 @@ static void ipcam_media_video_init(IpcamMediaVideo *self)
                                     "priority", WRITE_PRIO,
                                     NULL);
     ipcam_shm_rr_queue_open(priv->video_pool, "/data/configuration.sqlite3", 0);
+    priv->isp = g_object_new(IPCAM_ISP_TYPE, NULL);
+    priv->vi = g_object_new(IPCAM_VIDEO_INPUT_TYPE, NULL);
+    priv->vpss = g_object_new(IPCAM_VIDEO_PROCESS_SUBSYSTEM_TYPE, NULL);
+    priv->venc = g_object_new(IPCAM_VIDEO_ENCODE_TYPE, NULL);
+    priv->livestream_flag = TRUE;
 }
 static void ipcam_media_video_get_property(GObject    *object,
                                            guint       property_id,
@@ -91,6 +115,7 @@ static void ipcam_media_video_class_init(IpcamMediaVideoClass *klass)
 {
     g_type_class_add_private(klass, sizeof(IpcamMediaVideoPrivate));
     GObjectClass *object_class = G_OBJECT_CLASS(klass);
+    object_class->finalize = &ipcam_media_video_finalize;
     object_class->get_property = &ipcam_media_video_get_property;
     object_class->set_property = &ipcam_media_video_set_property;
 
@@ -103,37 +128,7 @@ static void ipcam_media_video_class_init(IpcamMediaVideoClass *klass)
 
     g_object_class_install_properties(object_class, N_PROPERTIES, obj_properties);
 }
-HI_S32 ipcam_media_vidoe_proc_start_video_input_unit(IpcamMediaVideo *media_proc)
-{
-    
-}
-    
-HI_S32 ipcam_media_vidoe_proc_stop_video_input_unit(IpcamMediaVideo *media_proc)
-{
-    
-}
-
-HI_S32 ipcam_media_vidoe_proc_start_video_process_subsystem_unit(IpcamMediaVideo *media_proc)
-{
-    
-}
-
-HI_VOID ipcam_media_vidoe_proc_stop_video_process_subsystem_unit(IpcamMediaVideo *media_proc)
-{
-    
-}
-
-HI_S32 ipcam_media_vidoe_proc_start_video_encode_unit(IpcamMediaVideo *media_proc)
-{
-    
-}
-
-HI_S32 ipcam_media_vidoe_proc_stop_video_encode_unit(IpcamMediaVideo *media_proc)
-{
-    
-}
-
-HI_S32 ipcam_media_vidoe_proc_vpss_bind_vi(IpcamMediaVideo *media_proc)
+static gint32 ipcam_media_video_vpss_bind_vi(IpcamMediaVideo *self)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     MPP_CHN_S stSrcChn;
@@ -150,13 +145,34 @@ HI_S32 ipcam_media_vidoe_proc_vpss_bind_vi(IpcamMediaVideo *media_proc)
     s32Ret = HI_MPI_SYS_Bind(&stSrcChn, &stDestChn);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("failed with %#x!\n", s32Ret);
+        g_critical("%s: HI_MPI_SYS_Bind failed with %#x!\n", __FUNCTION__, s32Ret);
     }
 
     return s32Ret;
 }
+static gint32 ipcam_media_video_vpss_unbind_vi(IpcamMediaVideo *self)
+{
+    HI_S32 s32Ret = HI_SUCCESS;
+    MPP_CHN_S stSrcChn;
+    MPP_CHN_S stDestChn;
 
-HI_S32 ipcam_media_vidoe_proc_venc_bind_vpss(IpcamMediaVideo *media_proc)
+    stSrcChn.enModId = HI_ID_VIU;
+    stSrcChn.s32DevId = 0;
+    stSrcChn.s32ChnId = 0;
+
+    stDestChn.enModId = HI_ID_VPSS;
+    stDestChn.s32DevId = 0;
+    stDestChn.s32ChnId = 0;
+
+    s32Ret = HI_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("%s: HI_MPI_SYS_UnBind failed with %#x!\n", __FUNCTION__, s32Ret);
+    }
+
+    return s32Ret;
+}
+static gint32 ipcam_media_video_venc_bind_vpss(IpcamMediaVideo *self)
 {
     HI_S32 s32Ret = HI_SUCCESS;
     MPP_CHN_S stSrcChn;
@@ -173,17 +189,73 @@ HI_S32 ipcam_media_vidoe_proc_venc_bind_vpss(IpcamMediaVideo *media_proc)
     s32Ret = HI_MPI_SYS_Bind(&stSrcChn, &stDestChn);
     if (s32Ret != HI_SUCCESS)
     {
-        g_print("failed with %#x!\n", s32Ret);
+        g_critical("%s: HI_MPI_SYS_Bind failed with %#x!\n", __FUNCTION__, s32Ret);
     }
 
     return s32Ret;
 }
-
-#if 0
-HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
+static gint32 ipcam_media_video_venc_unbind_vpss(IpcamMediaVideo *self)
 {
-    HI_S32 i;
-    volatile ThreadParam *pThreadParam;
+    HI_S32 s32Ret = HI_SUCCESS;
+    MPP_CHN_S stSrcChn;
+    MPP_CHN_S stDestChn;
+
+    stSrcChn.enModId = HI_ID_VPSS;
+    stSrcChn.s32DevId = 0;
+    stSrcChn.s32ChnId = 0;
+
+    stDestChn.enModId = HI_ID_GROUP;
+    stDestChn.s32DevId = 0;
+    stDestChn.s32ChnId = 0;
+
+    s32Ret = HI_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
+    if (s32Ret != HI_SUCCESS)
+    {
+        g_critical("%s: HI_MPI_SYS_UnBind failed with %#x!\n", __FUNCTION__, s32Ret);
+    }
+
+    return s32Ret;
+}
+static gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self)
+{
+    IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
+
+    ipcam_isp_start(priv->isp);
+    ipcam_video_input_start(priv->vi);
+    ipcam_video_process_subsystem_start(priv->vpss);
+    ipcam_video_encode_start(priv->venc);
+
+    ipcam_media_video_vpss_bind_vi(self);
+    ipcam_media_video_venc_bind_vpss(self);
+
+    priv->livestream_flag = TRUE;
+    priv->livestream = g_thread_new("livestream",
+                                    ipcam_media_video_livestream,
+                                    priv);
+
+    return HI_SUCCESS;
+}
+static gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self)
+{
+    IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
+
+    priv->livestream_flag = FALSE;
+    g_thread_join(priv->livestream);
+    
+    ipcam_media_video_venc_unbind_vpss(self);
+    ipcam_media_video_vpss_unbind_vi(self);
+
+    ipcam_video_encode_stop(priv->venc);
+    ipcam_video_process_subsystem_stop(priv->vpss);
+    ipcam_video_input_stop(priv->vi);
+    ipcam_isp_stop(priv->isp);
+
+    return HI_SUCCESS;
+}
+static gpointer ipcam_media_video_livestream(gpointer data)
+{
+    volatile IpcamMediaVideoPrivate *priv = (IpcamMediaVideoPrivate *)data;
+    HI_S32 i = 0;
     HI_S32 maxfd = 0;
     struct timeval TimeoutVal;
     fd_set read_fds;
@@ -192,7 +264,6 @@ HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
     VENC_STREAM_S stStream;
     HI_S32 s32Ret;
     
-    pThreadParam = (ThreadParam *)param;
     /******************************************
      step 1:  check & prepare save-file & venc-fd
     ******************************************/
@@ -200,8 +271,7 @@ HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
     VencFd = HI_MPI_VENC_GetFd(0);
     if (VencFd < 0)
     {
-        g_print("HI_MPI_VENC_GetFd failed with %#x!\n", VencFd);
-        return NULL;
+        g_critical("HI_MPI_VENC_GetFd failed with %#x!\n", VencFd);
     }
     if (maxfd <= VencFd)
     {
@@ -211,7 +281,7 @@ HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
     /******************************************
      step 2:  Start to get streams of each channel.
     ******************************************/
-    while (HI_TRUE == *(pThreadParam->pbThreadStart))
+    while (TRUE == priv->livestream_flag)
     {
         FD_ZERO(&read_fds);
         FD_SET(VencFd, &read_fds);
@@ -221,12 +291,12 @@ HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
         s32Ret = select(maxfd + 1, &read_fds, NULL, NULL, &TimeoutVal);
         if (s32Ret < 0)
         {
-            g_print("select failed!\n");
+            g_critical("select failed with %#x!\n", s32Ret);
             break;
         }
         else if (s32Ret == 0)
         {
-            g_print("get venc stream time out, exit thread\n");
+            //g_warning("get venc stream time out, continue!\n");
             continue;
         }
         else
@@ -240,17 +310,17 @@ HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
                 s32Ret = HI_MPI_VENC_Query(0, &stStat);
                 if (HI_SUCCESS != s32Ret)
                 {
-                    g_print("HI_MPI_VENC_Query chn[%d] failed with %#x!\n", i, s32Ret);
+                    g_print("HI_MPI_VENC_Query chn[%d] failed with %#x!\n", 0, s32Ret);
                     break;
                 }
 
                 /*******************************************************
                  step 2.2 : malloc corresponding number of pack nodes.
                 *******************************************************/
-                stStream.pstPack = (VENC_PACK_S*)malloc(sizeof(VENC_PACK_S) * stStat.u32CurPacks);
+                stStream.pstPack = g_new(VENC_PACK_S, stStat.u32CurPacks);
                 if (NULL == stStream.pstPack)
                 {
-                    g_print("malloc stream pack failed!\n");
+                    g_critical("malloc stream pack failed!\n");
                     break;
                 }
                     
@@ -261,51 +331,87 @@ HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
                 s32Ret = HI_MPI_VENC_GetStream(0, &stStream, HI_TRUE);
                 if (HI_SUCCESS != s32Ret)
                 {
-                    free(stStream.pstPack);
+                    g_free(stStream.pstPack);
                     stStream.pstPack = NULL;
-                    g_print("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);
+                    g_critical("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);
                     break;
                 }
 
                 /*******************************************************
                  step 2.4 : save frame to file
                 *******************************************************/
-                HI_U64 length = 0;
+                unsigned newFrameSize = 0; //%%% TO BE WRITTEN %%%
+                HI_U8 *p = NULL;
                 for (i = 0; i < stStream.u32PackCount; i++)
                 {
-                    length += stStream.pstPack[i].u32Len[0];
-                    length += stStream.pstPack[i].u32Len[1];
+                    newFrameSize += (stStream.pstPack[i].u32Len[0]);
+                    p = stStream.pstPack[i].pu8Addr[0];
+                    if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
+                    {
+                        newFrameSize -= 4;
+                        //envir() << "packet " << i << " pu8Addr[0][5] is " << p[4] << " length is " << newFrameSize << "\n";
+                    }
+                    if (stStream.pstPack[i].u32Len[1] > 0)
+                    {
+                        newFrameSize += (stStream.pstPack[i].u32Len[1]);
+                        p = stStream.pstPack[i].pu8Addr[1];
+                        if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
+                        {
+                            newFrameSize -= 4;
+                            g_print("pu8Addr[1][5] is %#x\n", p[4]);
+                        }
+                    }
                 }
-                if (length > 0)
+                if (newFrameSize > 0)
                 {
-                    DataPackage *data = (DataPackage *)malloc(sizeof(DataPackage));
-                    data->len = length;
-                    data->next = NULL;
-                    data->addr = (HI_U8 *)malloc(length + 10);
-                    data->pts = stStream.pstPack[0].u64PTS;
+                    //gettimeofday(&fPresentationTime, NULL); // If you have a more accurate time - e.g.,
+                                                              //from an encoder - then use that instead.
+                    VideoStreamData *vsd = (VideoStreamData *)g_malloc(sizeof(VideoStreamData) + newFrameSize);
+                    vsd->pts.tv_sec = stStream.pstPack[0].u64PTS / 1000000;
+                    vsd->pts.tv_usec = stStream.pstPack[0].u64PTS % 1000000;
+                    // Deliver the data here:
+                    vsd->len = newFrameSize;
+                    // If the device is *not* a 'live source' (e.g., it comes instead from a file or buffer),
+                    // then set "fDurationInMicroseconds" here.
                     HI_U64 pos = 0;
+                    HI_U64 left = 0;
                     for (i = 0; i < stStream.u32PackCount; i++)
                     {
-                        memcpy(data->addr + pos, stStream.pstPack[i].pu8Addr[0], stStream.pstPack[i].u32Len[0]);
-                        pos += stStream.pstPack[i].u32Len[0];
+                        left = (vsd->len - pos);
+                        p = stStream.pstPack[i].pu8Addr[0];
+                        if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
+                        {
+                            left = MIN(left, stStream.pstPack[i].u32Len[0] - 4);
+                            left = left < (stStream.pstPack[i].u32Len[0] - 4) ? left : (stStream.pstPack[i].u32Len[0] - 4);
+                            memcpy(vsd->data + pos, p + 4, left);
+                        }
+                        else
+                        {
+                            left = MIN(left, stStream.pstPack[i].u32Len[0]);
+                            memcpy(vsd->data + pos, p, left);
+                        }
+                        pos += left;
+                        if (pos >= vsd->len) break;
                         if (stStream.pstPack[i].u32Len[1] > 0)
                         {
-                            memcpy(data->addr + pos, stStream.pstPack[i].pu8Addr[1], stStream.pstPack[i].u32Len[1]);
-                            pos += stStream.pstPack[i].u32Len[1];
+                            left = (vsd->len - pos);
+                            p = stStream.pstPack[i].pu8Addr[1];
+                            if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
+                            {
+                                left = MIN(left, stStream.pstPack[i].u32Len[1] - 4);
+                                memcpy(vsd->data + pos, p + 4, left);
+                            }
+                            else
+                            {
+                                left = MIN(left, stStream.pstPack[i].u32Len[1]);
+                                memcpy(vsd->data + pos, p, left);
+                            }
+                            pos += left;
+                            if (pos >= vsd->len) break;
                         }
                     }
-                    if (pthread_mutex_lock(&mtx) == 0)
-                    {
-                        DataPackage *p = &dataHead;
-                        while (p->next)
-                        {
-                            p = p->next;
-                        }
-                        p->next = data;
-                        pthread_mutex_unlock(&mtx);
-                    }
-                    fg_print(stderr, "0x%x\n", (HI_U32 *)data->addr);
-                    pThreadParam->env->taskScheduler().triggerEvent(H264LiveStreamSource::eventTriggerId, pThreadParam->ourSource);
+                    ipcam_shm_rr_queue_write(priv->video_pool, vsd, sizeof(VideoStreamData) + newFrameSize);
+                    g_free(vsd);
                 }
                 
                 /*******************************************************
@@ -314,14 +420,14 @@ HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
                 s32Ret = HI_MPI_VENC_ReleaseStream(0, &stStream);
                 if (HI_SUCCESS != s32Ret)
                 {
-                    free(stStream.pstPack);
+                    g_free(stStream.pstPack);
                     stStream.pstPack = NULL;
                     break;
                 }
                 /*******************************************************
                  step 2.6 : free pack nodes
                 *******************************************************/
-                free(stStream.pstPack);
+                g_free(stStream.pstPack);
                 stStream.pstPack = NULL;
             }
         }
@@ -330,56 +436,10 @@ HI_VOID* ipcam_media_vidoe_proc_video_stream_proc(void *param)
     /*******************************************************
      * step 3 : close save-file
      *******************************************************/
+    g_thread_exit(0);
     return NULL;
 }
-#endif
 
-HI_S32 ipcam_media_vidoe_proc_start_video_stream_proc(IpcamMediaVideo *media_proc)
-{
-    HI_S32 s32Ret;
-    HI_S32 vencFd;
-#if 0
-    s32Ret = start_video_input_unit();
-    if (HI_SUCCESS == s32Ret)
-    {
-        s32Ret = start_video_process_subsystem_unit();
-        if (HI_SUCCESS == s32Ret)
-        {
-            vpss_bind_vi();
-            s32Ret = start_video_encode_unit();
-            if (HI_SUCCESS == s32Ret)
-            {
-                s32Ret = venc_bind_vpss();
-                if (HI_SUCCESS == s32Ret)
-                { 
-                    //pthread_create(&vencPid, 0, video_stream_proc, (void *)&threadParam);
-                    vencFd = HI_MPI_VENC_GetFd(0);
-                    //envir().taskScheduler().turnOnBackgroundReadHandling(vencFd,
-                    //                                                     (TaskScheduler::BackgroundHandlerProc*)&deliverFrame0, this);
-                    if (vencFd < 0)
-                    {
-                        g_print("HI_MPI_VENC_GetFd failed with %#x!\n", vencFd);
-                        return HI_FAILURE;
-                    }
-                }
-            }
-        }
-        
-    }
-#endif
-    return s32Ret;
-}
-
-HI_VOID ipcam_media_vidoe_proc_stop_video_stream_proc(IpcamMediaVideo *media_proc)
-{
-    //envir().taskScheduler().turnOffBackgroundReadHandling(vencFd);
-#if 0
-    stop_video_encode_unit();
-    stop_video_process_subsystem_unit();
-    stop_video_input_unit();
-#endif
-    return;
-}
 #if 0
 {
     VENC_CHN_STAT_S stStat;
@@ -521,4 +581,6 @@ HI_VOID ipcam_media_vidoe_proc_stop_video_stream_proc(IpcamMediaVideo *media_pro
 #endif
 static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface)
 {
+    iface->start = ipcam_media_video_start_livestream;
+    iface->stop = ipcam_media_video_stop_livestream;
 }

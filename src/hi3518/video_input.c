@@ -104,6 +104,7 @@ static void ipcam_video_input_class_init(IpcamVideoInputClass *klass)
 
 gint32 ipcam_video_input_start(IpcamVideoInput *self)
 {
+    g_return_val_if_fail(IPCAM_IS_VIDEO_INPUT(self), HI_FAILURE);
     HI_S32 i, s32Ret = HI_SUCCESS;
     VI_DEV ViDev;
     VI_CHN ViChn;
@@ -202,6 +203,7 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self)
 }
 gint32 ipcam_video_input_stop(IpcamVideoInput *self)
 {
+    g_return_val_if_fail(IPCAM_IS_VIDEO_INPUT(self), HI_FAILURE);
     VI_DEV ViDev;
     VI_CHN ViChn;
     HI_S32 i;

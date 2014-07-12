@@ -104,6 +104,7 @@ static void ipcam_video_process_subsystem_class_init(IpcamVideoProcessSubsystemC
 
 gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self)
 {
+    g_return_val_if_fail(IPCAM_IS_VIDEO_PROCESS_SUBSYSTEM(self), HI_FAILURE);
     VPSS_GRP VpssGrp = 0;
     VPSS_CHN VpssChn = 0;
     VPSS_GRP_ATTR_S stGrpAttr;
@@ -188,6 +189,7 @@ gint32 ipcam_video_process_subsystem_start(IpcamVideoProcessSubsystem *self)
 }
 gint32 ipcam_video_process_subsystem_stop(IpcamVideoProcessSubsystem *self)
 {
+    g_return_val_if_fail(IPCAM_IS_VIDEO_PROCESS_SUBSYSTEM(self), HI_FAILURE);
     HI_S32 s32Ret = HI_SUCCESS;
     VPSS_GRP VpssGrp = 0;
     VPSS_CHN VpssChn = 0;

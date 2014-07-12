@@ -35,7 +35,7 @@ typedef struct _VideoStreamDescriptor
      guint image_height;
      guint frame_rate;
      guint iframe_ratio;
-     enum BitRateType;
+     enum BitRateType bit_rate_type;
      guint bit_rate;
 } VideoStreamDescriptor;
 
@@ -60,5 +60,12 @@ typedef struct _StreamDescriptor
           AudioStreamDescriptor a_desc;
      };
 } StreamDescriptor;
+
+typedef struct _VideoStreamData
+{
+     guint32 len;
+     struct timeval pts;
+     gchar data[0];
+} VideoStreamData;
 
 #endif /* __STREAM_DESCRIPTOR_H__ */

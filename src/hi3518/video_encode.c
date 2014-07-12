@@ -105,6 +105,7 @@ static void ipcam_video_encode_class_init(IpcamVideoEncodeClass *klass)
 
 gint32 ipcam_video_encode_start(IpcamVideoEncode *self)
 {
+    g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
     HI_S32 s32Ret;
     VENC_GRP VeGroup = 0;
     VENC_CHN VeChn = 0;
@@ -165,6 +166,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self)
 }
 gint32 ipcam_video_encode_stop(IpcamVideoEncode *self)
 {
+    g_return_val_if_fail(IPCAM_IS_VIDEO_ENCODE(self), HI_FAILURE);
     HI_S32 s32Ret;
     VENC_GRP VeGrp = 0;
     VENC_CHN VeChn = 0;

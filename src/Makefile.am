@@ -11,8 +11,9 @@ AM_CPPFLAGS = \
 	$(IMEDIA_CFLAGS)
 
 AM_CFLAGS =\
-	 -Wall\
-	 -g
+	-rdynamic\
+	-Wall\
+	-g
 
 bindir = $(prefix)/imedia
 bin_PROGRAMS = imedia
@@ -36,7 +37,7 @@ endif
 
 imedia_LDFLAGS = 
 
-imedia_LDADD = $(IMEDIA_LIBS) $(MPPLIBDIR)/libsns_nt99141.a $(MPPLIBDIR)/libmpi.a $(MPPLIBDIR)/lib_hiae.a $(MPPLIBDIR)/libanr.a $(MPPLIBDIR)/libaec.a $(MPPLIBDIR)/lib_hiaf.a $(MPPLIBDIR)/lib_hiawb.a $(MPPLIBDIR)/libmem.a $(MPPLIBDIR)/libtde.a $(MPPLIBDIR)/libVoiceEngine.a $(MPPLIBDIR)/libresampler.a $(MPPLIBDIR)/libisp.a
+imedia_LDADD = $(IMEDIA_LIBS) $(MPPLIBDIR)/libmpi.a $(MPPLIBDIR)/lib_hiae.a $(MPPLIBDIR)/libanr.a $(MPPLIBDIR)/libaec.a $(MPPLIBDIR)/lib_hiaf.a $(MPPLIBDIR)/lib_hiawb.a $(MPPLIBDIR)/libmem.a $(MPPLIBDIR)/libtde.a $(MPPLIBDIR)/libVoiceEngine.a $(MPPLIBDIR)/libresampler.a $(MPPLIBDIR)/libisp.a -ldl
 
 SUBDIRS = \
 	config

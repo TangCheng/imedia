@@ -54,14 +54,14 @@ static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self)
     s32Ret = HI_MPI_VB_SetConf(&stVbConf);
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_VB_SetConf failed!\n");
+        g_critical("HI_MPI_VB_SetConf failed with %#x!\n", s32Ret);
         return;
     }
 
     s32Ret = HI_MPI_VB_Init();
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_VB_Init failed!\n");
+        g_critical("HI_MPI_VB_Init failed with %#x!\n", s32Ret);
         return;
     }
 
@@ -69,14 +69,14 @@ static void ipcam_media_sys_ctrl_init_media_system(IpcamMediaSysCtrl *self)
     s32Ret = HI_MPI_SYS_SetConf(&stSysConf);
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_SYS_SetConf failed\n");
+        g_critical("HI_MPI_SYS_SetConf failed with %#x!\n", s32Ret);
         return;
     }
 
     s32Ret = HI_MPI_SYS_Init();
     if (HI_SUCCESS != s32Ret)
     {
-        g_print("HI_MPI_SYS_Init failed!\n");
+        g_critical("HI_MPI_SYS_Init failed with %#x!\n", s32Ret);
         return;
     }
 }
@@ -91,5 +91,4 @@ static void ipcam_imedia_sys_ctrl_interface_init(IpcamIMediaSysCtrlInterface *if
 {
     iface->init_media_system = ipcam_media_sys_ctrl_init_media_system;
     iface->uninit_media_system = ipcam_media_sys_ctrl_uninit_media_system;
-    g_print("%s %i.\n", __func__, __LINE__);
 }
