@@ -6,8 +6,9 @@
 //#include <mpi_region.h>
 #include <mpi_sys.h>
 #include <mpi_venc.h>
-#include <shm_queue.h>
-#include <shm_rr_queue.h>
+//#include <shm_queue.h>
+//#include <shm_rr_queue.h>
+#include <zmq.h>
 #include "stream_descriptor.h"
 #include "media_video_interface.h"
 #include "media_video.h"
@@ -26,7 +27,9 @@ enum
 typedef struct _IpcamMediaVideoPrivate
 {
     gchar *xx;
-    IpcamShmRRQueue *video_pool;
+    //IpcamShmRRQueue *video_pool;
+    void *context;
+    void *publisher;
     IpcamIsp *isp;
     IpcamVideoInput *vi;
     IpcamVideoProcessSubsystem *vpss;
@@ -48,9 +51,11 @@ static void ipcam_media_video_finalize(GObject *object)
 {
     IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-    ipcam_shm_rr_queue_close(priv->video_pool);
-    g_clear_object(&priv->video_pool);
-    g_clear_object(&priv->isp);
+    /*ipcam_shm_rr_queue_close(priv->video_pool);
+      g_clear_object(&priv->video_pool);*/
+    zmq_close(priv->publisher);
+    zmq_term(priv->context);
+        g_clear_object(&priv->isp);
     g_clear_object(&priv->vi);
     g_clear_object(&priv->vpss);
     g_clear_object(&priv->venc);
@@ -60,6 +65,10 @@ static void ipcam_media_video_init(IpcamMediaVideo *self)
 {
 	IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
     priv->xx = NULL;
+    priv->context = zmq_init(1);
+    priv->publisher = zmq_socket(priv->context, ZMQ_PUB);
+    zmq_bind(priv->publisher, "ipc:///tmp/livestream");
+    /*
     priv->video_pool = g_object_new(IPCAM_SHM_RR_QUEUE_TYPE,
                                     "block-num", 10,
                                     "pool-size", 1024 * 1024,
@@ -67,6 +76,7 @@ static void ipcam_media_video_init(IpcamMediaVideo *self)
                                     "priority", WRITE_PRIO,
                                     NULL);
     ipcam_shm_rr_queue_open(priv->video_pool, "/data/configuration.sqlite3", 0);
+    */
     priv->isp = g_object_new(IPCAM_ISP_TYPE, NULL);
     priv->vi = g_object_new(IPCAM_VIDEO_INPUT_TYPE, NULL);
     priv->vpss = g_object_new(IPCAM_VIDEO_PROCESS_SUBSYSTEM_TYPE, NULL);
@@ -346,21 +356,25 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                 for (i = 0; i < stStream.u32PackCount; i++)
                 {
                     newFrameSize += (stStream.pstPack[i].u32Len[0]);
+                    /*
                     p = stStream.pstPack[i].pu8Addr[0];
                     if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
                     {
                         newFrameSize -= 4;
                         //envir() << "packet " << i << " pu8Addr[0][5] is " << p[4] << " length is " << newFrameSize << "\n";
                     }
+                    */
                     if (stStream.pstPack[i].u32Len[1] > 0)
                     {
                         newFrameSize += (stStream.pstPack[i].u32Len[1]);
+                        /*
                         p = stStream.pstPack[i].pu8Addr[1];
                         if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
                         {
                             newFrameSize -= 4;
                             g_print("pu8Addr[1][5] is %#x\n", p[4]);
                         }
+                        */
                     }
                 }
                 if (newFrameSize > 0)
@@ -380,6 +394,7 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                     {
                         left = (vsd->len - pos);
                         p = stStream.pstPack[i].pu8Addr[0];
+                        /*
                         if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
                         {
                             left = MIN(left, stStream.pstPack[i].u32Len[0] - 4);
@@ -387,6 +402,7 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                             memcpy(vsd->data + pos, p + 4, left);
                         }
                         else
+                        */
                         {
                             left = MIN(left, stStream.pstPack[i].u32Len[0]);
                             memcpy(vsd->data + pos, p, left);
@@ -397,12 +413,14 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                         {
                             left = (vsd->len - pos);
                             p = stStream.pstPack[i].pu8Addr[1];
+                            /*
                             if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
                             {
                                 left = MIN(left, stStream.pstPack[i].u32Len[1] - 4);
                                 memcpy(vsd->data + pos, p + 4, left);
                             }
                             else
+                            */
                             {
                                 left = MIN(left, stStream.pstPack[i].u32Len[1]);
                                 memcpy(vsd->data + pos, p, left);
@@ -411,7 +429,8 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                             if (pos >= vsd->len) break;
                         }
                     }
-                    ipcam_shm_rr_queue_write(priv->video_pool, vsd, sizeof(VideoStreamData) + newFrameSize);
+                    //ipcam_shm_rr_queue_write(priv->video_pool, vsd, sizeof(VideoStreamData) + newFrameSize);
+                    s32Ret = zmq_send(priv->publisher, vsd, sizeof(VideoStreamData) + newFrameSize, 0);
                     g_free(vsd);
                 }
                 
