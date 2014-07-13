@@ -28,6 +28,7 @@ static void ipcam_isp_init(IpcamIsp *self)
 	IpcamIspPrivate *priv = ipcam_isp_get_instance_private(self);
     priv->sensor_type = NULL;
     priv->sensor_lib_handle = NULL;
+    priv->sensor_register_callback = NULL;
 }
 static void ipcam_isp_class_init(IpcamIspClass *klass)
 {
@@ -118,12 +119,15 @@ gint32 ipcam_isp_start(IpcamIsp *self)
         g_critical("%s: ipcam_isp_load_sensor_lib failed!\n", __FUNCTION__);
         return s32Ret;
     }
-    
-    s32Ret = (*priv->sensor_register_callback)();
-    if (s32Ret != HI_SUCCESS)
-    {
-        g_critical("%s: sensor_register_callback failed with %#x!\n", __FUNCTION__, s32Ret);
-        return s32Ret;
+
+    if (priv->sensor_register_callback)
+    {   
+        s32Ret = (*priv->sensor_register_callback)();
+        if (s32Ret != HI_SUCCESS)
+        {
+            g_critical("%s: sensor_register_callback failed with %#x!\n", __FUNCTION__, s32Ret);
+            return s32Ret;
+        }
     }
 
 	ISP_IMAGE_ATTR_S stImageAttr;

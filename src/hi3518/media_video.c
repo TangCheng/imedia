@@ -31,7 +31,7 @@ typedef struct _IpcamMediaVideoPrivate
     IpcamVideoInput *vi;
     IpcamVideoProcessSubsystem *vpss;
     IpcamVideoEncode *venc;
-    gboolean livestream_flag;
+    volatile gboolean livestream_flag;
     GThread *livestream;
 } IpcamMediaVideoPrivate;
 
@@ -46,7 +46,8 @@ static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 
 static void ipcam_media_video_finalize(GObject *object)
 {
-    IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(IPCAM_MEDIA_VIDEO(object));
+    IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
+    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
     ipcam_shm_rr_queue_close(priv->video_pool);
     g_clear_object(&priv->video_pool);
     g_clear_object(&priv->isp);
@@ -57,7 +58,7 @@ static void ipcam_media_video_finalize(GObject *object)
 }
 static void ipcam_media_video_init(IpcamMediaVideo *self)
 {
-	IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
+	IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
     priv->xx = NULL;
     priv->video_pool = g_object_new(IPCAM_SHM_RR_QUEUE_TYPE,
                                     "block-num", 10,
@@ -78,7 +79,7 @@ static void ipcam_media_video_get_property(GObject    *object,
                                            GParamSpec *pspec)
 {
     IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
-    IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
+    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
     switch(property_id)
     {
     case PROP_XX:
@@ -97,7 +98,7 @@ static void ipcam_media_video_set_property(GObject      *object,
                                            GParamSpec   *pspec)
 {
     IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
-    IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
+    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
     switch(property_id)
     {
     case PROP_XX:
@@ -218,7 +219,7 @@ static gint32 ipcam_media_video_venc_unbind_vpss(IpcamMediaVideo *self)
 }
 static gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self)
 {
-    IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
+    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
 
     ipcam_isp_start(priv->isp);
     ipcam_video_input_start(priv->vi);
@@ -237,7 +238,7 @@ static gint32 ipcam_media_video_start_livestream(IpcamMediaVideo *self)
 }
 static gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self)
 {
-    IpcamMediaVideoPrivate *priv = ipcam_media_video_get_instance_private(self);
+    IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
 
     priv->livestream_flag = FALSE;
     g_thread_join(priv->livestream);
@@ -254,7 +255,7 @@ static gint32 ipcam_media_video_stop_livestream(IpcamMediaVideo *self)
 }
 static gpointer ipcam_media_video_livestream(gpointer data)
 {
-    volatile IpcamMediaVideoPrivate *priv = (IpcamMediaVideoPrivate *)data;
+    IpcamMediaVideoPrivate *priv = (IpcamMediaVideoPrivate *)data;
     HI_S32 i = 0;
     HI_S32 maxfd = 0;
     struct timeval TimeoutVal;
