@@ -45,7 +45,12 @@ AM_CONDITIONAL([HI3518], [test x"$enable_hi3518" = "xyes"])
 AM_CONDITIONAL([HI3516], [test x"$enable_hi3516" = "xyes"])
 
 if test "x$enable_hi3518" = "xyes" || test "x$enable_hi3516" = "xyes"; then
-trymppdir=""
+if test "x$enable_hi3518" = "xyes"; then
+  trymppdir="${srcdir}/src/hi3518/mpp2"
+fi
+if test "x$enable_hi3516" = "xyes"; then
+  trymppdir="${srcdir}/src/hi3516/mpp2"
+fi
 AC_ARG_WITH(hisimpp,
        [  --with-hisimpp=PATH     Specify path to hisi mpp installation ],
        [
