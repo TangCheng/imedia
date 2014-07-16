@@ -1,6 +1,7 @@
 #include <hi_defines.h>
 #include <hi_comm_vi.h>
 #include <mpi_vi.h>
+#include <stdlib.h>
 #include "stream_descriptor.h"
 #include "video_input.h"
 
@@ -14,6 +15,7 @@ enum
 
 typedef struct _IpcamVideoInputPrivate
 {
+    gchar *sensor_type;
     guint32 image_width;
     guint32 image_height;
 } IpcamVideoInputPrivate;
@@ -25,6 +27,7 @@ static GParamSpec *obj_properties[N_PROPERTIES] = {NULL, };
 static void ipcam_video_input_init(IpcamVideoInput *self)
 {
 	IpcamVideoInputPrivate *priv = ipcam_video_input_get_instance_private(self);
+    priv->sensor_type = getenv("SENSOR_TYPE");
     priv->image_width = IMAGE_WIDTH;
     priv->image_height = IMAGE_HEIGHT;
 }
@@ -149,6 +152,31 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self)
                 VI_DATA_TYPE_RGB,
                 HI_FALSE
             };
+        if (g_str_equal(priv->sensor_type, "AR0130"))
+        {
+            stViDevAttr.au32CompMask[0] = 0xFFF00000;
+            stViDevAttr.stSynCfg.enVsync = VI_VSYNC_PULSE;
+            stViDevAttr.enDataPath = VI_PATH_ISP;
+            stViDevAttr.enInputDataType = VI_DATA_TYPE_RGB;
+        }
+        if (g_str_equal(priv->sensor_type, "AR0331"))
+        {
+            stViDevAttr.au32CompMask[0] = 0xFFF00000;
+            stViDevAttr.stSynCfg.enVsync = VI_VSYNC_PULSE;
+            stViDevAttr.enDataPath = VI_PATH_ISP;
+            stViDevAttr.enInputDataType = VI_DATA_TYPE_RGB;
+        }
+        if (g_str_equal(priv->sensor_type, "NT99141"))
+        {
+            stViDevAttr.au32CompMask[0] = 0xFF000000;
+            stViDevAttr.stSynCfg.enVsync = VI_VSYNC_FIELD;
+            stViDevAttr.stSynCfg.stTimingBlank.u32HsyncHfb = 4;
+            stViDevAttr.stSynCfg.stTimingBlank.u32HsyncHbb = 544;
+            stViDevAttr.stSynCfg.stTimingBlank.u32VsyncVfb = 4;
+            stViDevAttr.stSynCfg.stTimingBlank.u32VsyncVbb = 20;
+            stViDevAttr.enDataPath = VI_PATH_BYPASS;
+            stViDevAttr.enInputDataType = VI_DATA_TYPE_YUV;
+        }
         
         s32Ret = HI_MPI_VI_SetDevAttr(ViDev, &stViDevAttr);
         if (s32Ret != HI_SUCCESS)
