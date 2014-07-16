@@ -8,6 +8,7 @@
 #include <mpi_venc.h>
 //#include <shm_queue.h>
 //#include <shm_rr_queue.h>
+#include <memory.h>
 #include <zmq.h>
 #include "stream_descriptor.h"
 #include "media_video_interface.h"
