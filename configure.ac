@@ -21,7 +21,7 @@ AC_PROG_CC
 LT_INIT
 
 
-PKG_CHECK_MODULES(IMEDIA, [json-glib-1.0 glib-2.0 gobject-2.0 libipcam_base-0.1.0 SDL2_ttf])
+PKG_CHECK_MODULES(IMEDIA, [libzmq json-glib-1.0 glib-2.0 gobject-2.0 libipcam_base-0.1.0 SDL2_ttf])
 
 AC_ARG_ENABLE([hi3518],
 	AS_HELP_STRING([--enable-hi3518],[Build with hi3518 support (default: enabled)]),
@@ -45,12 +45,7 @@ AM_CONDITIONAL([HI3518], [test x"$enable_hi3518" = "xyes"])
 AM_CONDITIONAL([HI3516], [test x"$enable_hi3516" = "xyes"])
 
 if test "x$enable_hi3518" = "xyes" || test "x$enable_hi3516" = "xyes"; then
-if test "x$enable_hi3518" = "xyes"; then
-  trymppdir="${srcdir}/src/hi3518/mpp2"
-fi
-if test "x$enable_hi3516" = "xyes"; then
-  trymppdir="${srcdir}/src/hi3516/mpp2"
-fi
+trymppdir=""
 AC_ARG_WITH(hisimpp,
        [  --with-hisimpp=PATH     Specify path to hisi mpp installation ],
        [
@@ -105,29 +100,33 @@ AC_CACHE_CHECK([for hisimpp directory], ac_cv_hisimpp_dir, [
   LIBS="$saved_LIBS"
   LDFLAGS="$saved_LDFLAGS"
   CFLAGS="$saved_CFLAGS"
-  if test $mpp_found = no ; then
-    AC_MSG_ERROR([hisimpp is required.
+  dnl if test $mpp_found = no ; then
+    dnl AC_MSG_ERROR([hisimpp is required.
  
-      If it's already installed, specify its path using --with-hisimpp=/dir/
-])
-  fi
+      dnl If it's already installed, specify its path using --with-hisimpp=/dir/
+dnl ])
+dnl  fi
 ])
 dnl LIBS="$LIBS"
-if test $ac_cv_hisimpp_dir != "(system)"; then
-  if test -d "$ac_cv_hisimpp_dir/lib" ; then
-    dnl LDFLAGS="-L$ac_cv_hisimpp_dir/lib $LDFLAGS"
-    MPPLIBDIR="$ac_cv_hisimpp_dir/lib"
-  else
-    dnl LDFLAGS="-L$ac_cv_hisimpp_dir $LDFLAGS"
-    MPPLIBDIR="$ac_cv_hisimpp_dir"
-  fi
-  AC_SUBST(MPPLIBDIR)
-  if test -d "$ac_cv_hisimpp_dir/include" ; then
-    CFLAGS="-I$ac_cv_hisimpp_dir/include $CFLAGS"
-  else
-    CFLAGS="-I$ac_cv_hisimpp_dir $CFLAGS"
+if test $mpp_found = yes ; then
+  if test $ac_cv_hisimpp_dir != "(system)"; then
+    if test -d "$ac_cv_hisimpp_dir/lib" ; then
+      dnl LDFLAGS="-L$ac_cv_hisimpp_dir/lib $LDFLAGS"
+      MPPLIBDIR="$ac_cv_hisimpp_dir/lib"
+    else
+      dnl LDFLAGS="-L$ac_cv_hisimpp_dir $LDFLAGS"
+      MPPLIBDIR="$ac_cv_hisimpp_dir"
+    fi
+    AC_SUBST(MPPLIBDIR)
+    if test -d "$ac_cv_hisimpp_dir/include" ; then
+      MPPCFLAGS="-I$ac_cv_hisimpp_dir/include"
+    else
+      MPPCFLAGS="-I$ac_cv_hisimpp_dir"
+    fi
+    AC_SUBST(MPPCFLAGS)
   fi
 fi
+AM_CONDITIONAL([INTERNAL_MPP], [test $mpp_found = no])
 
 if test "x$enable_hi3518" = "xyes"; then
   CFLAGS="-DHI3518 $CFLAGS"
