@@ -155,27 +155,29 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self)
         if (g_str_equal(priv->sensor_type, "AR0130"))
         {
             stViDevAttr.au32CompMask[0] = 0xFFF00000;
-            stViDevAttr.stSynCfg.enVsync = VI_VSYNC_PULSE;
             stViDevAttr.enDataPath = VI_PATH_ISP;
             stViDevAttr.enInputDataType = VI_DATA_TYPE_RGB;
         }
-        if (g_str_equal(priv->sensor_type, "AR0331"))
+        else if (g_str_equal(priv->sensor_type, "AR0331"))
         {
             stViDevAttr.au32CompMask[0] = 0xFFF00000;
-            stViDevAttr.stSynCfg.enVsync = VI_VSYNC_PULSE;
             stViDevAttr.enDataPath = VI_PATH_ISP;
             stViDevAttr.enInputDataType = VI_DATA_TYPE_RGB;
         }
-        if (g_str_equal(priv->sensor_type, "NT99141"))
+        else if (g_str_equal(priv->sensor_type, "NT99141"))
         {
             stViDevAttr.au32CompMask[0] = 0xFF000000;
-            stViDevAttr.stSynCfg.enVsync = VI_VSYNC_FIELD;
             stViDevAttr.stSynCfg.stTimingBlank.u32HsyncHfb = 4;
             stViDevAttr.stSynCfg.stTimingBlank.u32HsyncHbb = 544;
             stViDevAttr.stSynCfg.stTimingBlank.u32VsyncVfb = 4;
             stViDevAttr.stSynCfg.stTimingBlank.u32VsyncVbb = 20;
             stViDevAttr.enDataPath = VI_PATH_BYPASS;
             stViDevAttr.enInputDataType = VI_DATA_TYPE_YUV;
+        }
+        else
+        {
+            // never run to here, but we must shut compiler up.
+            g_warning("Unknown sensor type %s\n!", priv->sensor_type);
         }
         
         s32Ret = HI_MPI_VI_SetDevAttr(ViDev, &stViDevAttr);
