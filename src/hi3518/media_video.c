@@ -1,13 +1,9 @@
-//#include <hi_comm_region.h>
 #include <hi_type.h>
 #include <hi_defines.h>
 #include <hi_comm_sys.h>
 #include <hi_comm_venc.h>
-//#include <mpi_region.h>
 #include <mpi_sys.h>
 #include <mpi_venc.h>
-//#include <shm_queue.h>
-//#include <shm_rr_queue.h>
 #include <memory.h>
 #include <zmq.h>
 #include "stream_descriptor.h"
@@ -28,7 +24,6 @@ enum
 typedef struct _IpcamMediaVideoPrivate
 {
     gchar *xx;
-    //IpcamShmRRQueue *video_pool;
     void *context;
     void *publisher;
     IpcamIsp *isp;
@@ -52,8 +47,6 @@ static void ipcam_media_video_finalize(GObject *object)
 {
     IpcamMediaVideo *self = IPCAM_MEDIA_VIDEO(object);
     IpcamMediaVideoPrivate *priv = IPCAM_MEDIA_VIDEO_GET_PRIVATE(self);
-    /*ipcam_shm_rr_queue_close(priv->video_pool);
-      g_clear_object(&priv->video_pool);*/
     zmq_close(priv->publisher);
     zmq_term(priv->context);
         g_clear_object(&priv->isp);
@@ -69,15 +62,6 @@ static void ipcam_media_video_init(IpcamMediaVideo *self)
     priv->context = zmq_init(1);
     priv->publisher = zmq_socket(priv->context, ZMQ_PUB);
     zmq_bind(priv->publisher, "ipc:///tmp/livestream");
-    /*
-    priv->video_pool = g_object_new(IPCAM_SHM_RR_QUEUE_TYPE,
-                                    "block-num", 10,
-                                    "pool-size", 1024 * 1024,
-                                    "mode", OP_MODE_WRITE,
-                                    "priority", WRITE_PRIO,
-                                    NULL);
-    ipcam_shm_rr_queue_open(priv->video_pool, "/data/configuration.sqlite3", 0);
-    */
     priv->isp = g_object_new(IPCAM_ISP_TYPE, NULL);
     priv->vi = g_object_new(IPCAM_VIDEO_INPUT_TYPE, NULL);
     priv->vpss = g_object_new(IPCAM_VIDEO_PROCESS_SUBSYSTEM_TYPE, NULL);
@@ -430,7 +414,6 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                             if (pos >= vsd->len) break;
                         }
                     }
-                    //ipcam_shm_rr_queue_write(priv->video_pool, vsd, sizeof(VideoStreamData) + newFrameSize);
                     s32Ret = zmq_send(priv->publisher, vsd, sizeof(VideoStreamData) + newFrameSize, 0);
                     g_free(vsd);
                 }
@@ -461,145 +444,6 @@ static gpointer ipcam_media_video_livestream(gpointer data)
     return NULL;
 }
 
-#if 0
-{
-    VENC_CHN_STAT_S stStat;
-    VENC_STREAM_S stStream;
-    HI_S32 s32Ret = HI_SUCCESS;
-    HI_U32 i = 0;
-
-    /*******************************************************
-     step 2.1 : query how many packs in one-frame stream.
-    *******************************************************/
-    memset(&stStream, 0, sizeof(stStream));
-    s32Ret = HI_MPI_VENC_Query(0, &stStat);
-    if (HI_SUCCESS != s32Ret)
-    {
-        g_print("HI_MPI_VENC_Query chn[%d] failed with %#x!\n", i, s32Ret);
-        return;
-    }
-
-    /*******************************************************
-                 step 2.2 : malloc corresponding number of pack nodes.
-    *******************************************************/
-    stStream.pstPack = (VENC_PACK_S*)malloc(sizeof(VENC_PACK_S) * stStat.u32CurPacks);
-    if (NULL == stStream.pstPack)
-    {
-        g_print("malloc stream pack failed!\n");
-        return;
-    }
-                    
-    /*******************************************************
-                 step 2.3 : call mpi to get one-frame stream
-    *******************************************************/
-    stStream.u32PackCount = stStat.u32CurPacks;
-    s32Ret = HI_MPI_VENC_GetStream(0, &stStream, HI_TRUE);
-    if (HI_SUCCESS != s32Ret)
-    {
-        free(stStream.pstPack);
-        stStream.pstPack = NULL;
-        g_print("HI_MPI_VENC_GetStream failed with %#x!\n", s32Ret);
-        return;
-    }
-
-    /*******************************************************
-                 step 2.4 : save frame to file
-    *******************************************************/
-    unsigned newFrameSize = 0; //%%% TO BE WRITTEN %%%
-    HI_U8 *p = NULL;
-    for (i = 0; i < stStream.u32PackCount; i++)
-    {
-        newFrameSize += (stStream.pstPack[i].u32Len[0]);
-        p = stStream.pstPack[i].pu8Addr[0];
-        if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
-        {
-            newFrameSize -= 4;
-            //envir() << "packet " << i << " pu8Addr[0][5] is " << p[4] << " length is " << newFrameSize << "\n";
-        }
-        if (stStream.pstPack[i].u32Len[1] > 0)
-        {
-            newFrameSize += (stStream.pstPack[i].u32Len[1]);
-            p = stStream.pstPack[i].pu8Addr[1];
-            if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
-            {
-                newFrameSize -= 4;
-                envir() << "pu8Addr[1][5] is " << p[4] << "\n";
-            }
-        }
-    }
-    if (newFrameSize > 0)
-    {
-        //gettimeofday(&fPresentationTime, NULL); // If you have a more accurate time - e.g., from an encoder - then use that instead.
-        fPresentationTime.tv_sec = stStream.pstPack[0].u64PTS / 1000000;
-        fPresentationTime.tv_usec = stStream.pstPack[0].u64PTS % 1000000;
-        // Deliver the data here:
-        if (newFrameSize > fMaxSize) {
-            fFrameSize = fMaxSize;
-            fNumTruncatedBytes = newFrameSize - fMaxSize;
-        } else {
-            fFrameSize = newFrameSize;
-        }
-        // If the device is *not* a 'live source' (e.g., it comes instead from a file or buffer), then set "fDurationInMicroseconds" here.
-        HI_U64 pos = 0;
-        HI_U64 left = 0;
-        for (i = 0; i < stStream.u32PackCount; i++)
-        {
-            left = (fFrameSize - pos);
-            p = stStream.pstPack[i].pu8Addr[0];
-            if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
-            {
-                left = MIN(left, stStream.pstPack[i].u32Len[0] - 4);
-                left = left < (stStream.pstPack[i].u32Len[0] - 4) ? left : (stStream.pstPack[i].u32Len[0] - 4);
-                memcpy(fTo + pos, p + 4, left);
-            }
-            else
-            {
-                left = MIN(left, stStream.pstPack[i].u32Len[0]);
-                memcpy(fTo + pos, p, left);
-            }
-            pos += left;
-            if (pos >= fFrameSize) break;
-            if (stStream.pstPack[i].u32Len[1] > 0)
-            {
-                left = (fFrameSize - pos);
-                p = stStream.pstPack[i].pu8Addr[1];
-                if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
-                {
-                    left = MIN(left, stStream.pstPack[i].u32Len[1] - 4);
-                    memcpy(fTo + pos, p + 4, left);
-                }
-                else
-                {
-                    left = MIN(left, stStream.pstPack[i].u32Len[1]);
-                    memcpy(fTo + pos, p, left);
-                }
-                pos += left;
-                if (pos >= fFrameSize) break;
-            }
-        }
-    }
-                
-    /*******************************************************
-                 step 2.5 : release stream
-    *******************************************************/
-    s32Ret = HI_MPI_VENC_ReleaseStream(0, &stStream);
-    if (HI_SUCCESS != s32Ret)
-    {
-        free(stStream.pstPack);
-        stStream.pstPack = NULL;
-        return;
-    }
-    /*******************************************************
-                 step 2.6 : free pack nodes
-    *******************************************************/
-    free(stStream.pstPack);
-    stStream.pstPack = NULL;
-
-    // After delivering the data, inform the reader that it is now available:
-    if (newFrameSize > 0)
-        FramedSource::afterGetting(this);
-}
-#endif
 static void ipcam_ivideo_interface_init(IpcamIVideoInterface *iface)
 {
     iface->start = ipcam_media_video_start_livestream;
