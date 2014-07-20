@@ -40,6 +40,7 @@ if HI3518
 imedia_SOURCES += \
 	hi3518/media_sys_ctrl.c \
 	hi3518/media_video.c \
+	hi3518/media_osd.c \
 	hi3518/isp.c \
 	hi3518/video_encode.c \
 	hi3518/video_input.c \

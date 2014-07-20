@@ -16,9 +16,15 @@ typedef struct _IpcamIOSDInterface IpcamIOSDInterface;
 struct _IpcamIOSDInterface
 {
     GTypeInterface parent_iface;
+    gint32 (*start)(IpcamIOSD *self);
+    gint32 (*set_content)(IpcamIOSD *self, const gchar *content);
+    gint32 (*stop)(IpcamIOSD *self);
 };
 
 GType ipcam_iosd_get_type(void);
+gint32 ipcam_iosd_start(IpcamIOSD *self);
+gint32 ipcam_iosd_set_content(IpcamIOSD *self, const gchar *content);
+gint32 ipcam_iosd_stop(IpcamIOSD *self);
 
 G_END_DECLS
 
