@@ -30,6 +30,7 @@ bindir = $(prefix)/imedia
 bin_PROGRAMS = imedia
 
 imedia_SOURCES = \
+	osd_font/osd_font.c \
 	media_sys_ctrl_interface.c \
 	media_video_interface.c \
 	media_osd_interface.c \

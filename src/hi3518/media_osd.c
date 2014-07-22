@@ -4,8 +4,7 @@
 #include <mpi_region.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
+#include "osd_font/osd_font.h"
 #include "media_osd_interface.h"
 #include "media_osd.h"
 
@@ -20,8 +19,7 @@ enum
 
 typedef struct _IpcamMediaOsdPrivate
 {
-    gchar *xx;
-    TTF_Font *font;
+    IpcamOsdFont *osd_font;
 } IpcamMediaOsdPrivate;
 
 static void ipcam_iosd_interface_init(IpcamIOSDInterface *iface);
@@ -34,8 +32,6 @@ G_DEFINE_TYPE_WITH_CODE(IpcamMediaOsd, ipcam_media_osd, G_TYPE_OBJECT,
 
 static void ipcam_media_osd_init(IpcamMediaOsd *self)
 {
-	IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
-    priv->xx = NULL;
 }
 /*
 static void ipcam_media_osd_get_property(GObject    *object,
@@ -108,31 +104,13 @@ static gint32 ipcam_media_osd_start(IpcamMediaOsd *self)
     RGN_CHN_ATTR_S stChnAttr;
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
 
-    /* Initialize the TTF library */
-    s32Ret = TTF_Init();
-	if (s32Ret < 0)
-    {
-		g_critical("Couldn't initialize TTF: %s\n", SDL_GetError());
-		SDL_Quit();
-		return s32Ret;
-	}
+    priv->osd_font = ipcam_osd_font_new();
+    g_object_ref(priv->osd_font);
 
-    priv->font = TTF_OpenFont("/usr/share/fonts/truetype/droid/DroidSansFallback.ttf", 24);
-	if (NULL== priv->font)
-    {
-		g_critical("Couldn't load %s pt font from %d: %s\n", "ptsize", 24, SDL_GetError());
-        return HI_FAILURE;
-	}
-
-    TTF_SetFontStyle(priv->font, TTF_STYLE_BOLD);
-	TTF_SetFontOutline(priv->font, 0);
-	TTF_SetFontKerning(priv->font, 0);
-	TTF_SetFontHinting(priv->font, TTF_HINTING_LIGHT);
-    
     stRgnAttr.enType = OVERLAY_RGN;
     stRgnAttr.unAttr.stOverlay.enPixelFmt = PIXEL_FORMAT_RGB_1555;
-    stRgnAttr.unAttr.stOverlay.stSize.u32Width  = 800;
-    stRgnAttr.unAttr.stOverlay.stSize.u32Height = 64;
+    stRgnAttr.unAttr.stOverlay.stSize.u32Width  = 512;
+    stRgnAttr.unAttr.stOverlay.stSize.u32Height = 32;
     stRgnAttr.unAttr.stOverlay.u32BgColor = 0x7FFF;
 
     RgnHandle = 0;
@@ -163,7 +141,7 @@ static gint32 ipcam_media_osd_start(IpcamMediaOsd *self)
 
     stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Width = 16;
     stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Height = 16;
-    stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 64;
+    stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 48;
     stChnAttr.unChnAttr.stOverlayChn.stInvertColor.enChgMod = LESSTHAN_LUM_THRESH;
     stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = HI_TRUE;
 
@@ -178,57 +156,27 @@ static gint32 ipcam_media_osd_start(IpcamMediaOsd *self)
 static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, const gchar *content)
 {
     HI_S32 s32Ret = HI_FAILURE;
-    SDL_Surface *text = NULL, *text_rgb1555 = NULL;
+    gboolean bRet = FALSE;
     RGN_HANDLE RgnHandle;
     BITMAP_S stBitmap;
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
+    g_return_val_if_fail((NULL != priv->osd_font), s32Ret);
 
-    SDL_Color forecol= {0x00, 0x00, 0x00, 0x00};
-	text = TTF_RenderUTF8_Solid(priv->font, content, forecol);
-
-    /* Convert to 16 bits per pixel */
-    text_rgb1555 = SDL_CreateRGBSurface(SDL_SWSURFACE, 
-                                        text->w,
-                                        text->h,
-                                        16,
-                                        0x1F << 10,
-                                        0x1F << 5,
-                                        0x1F << 0,
-                                        0x1 << 15);
-    SDL_Rect bounds;
-    if (NULL != text_rgb1555 && NULL != text)
+    RgnHandle = 0;
+    stBitmap.enPixelFormat = PIXEL_FORMAT_RGB_1555;
+    bRet = ipcam_osd_font_render_text(priv->osd_font,
+                                      content,
+                                      &stBitmap.pData,
+                                      &stBitmap.u32Width,
+                                      &stBitmap.u32Height);
+    if (bRet)
     {
-    	bounds.x = 0;
-    	bounds.y = 0;
-    	bounds.w = text->w;
-    	bounds.h = text->h;
-    	if (SDL_LowerBlit(text, &bounds, text_rgb1555, &bounds) < 0)
-        {
-    		g_critical("Couldn't convert image to 16 bpp");
-    	}
-        //SDL_SaveBMP(text_rgb1555, content);
-
-        RgnHandle = 0;
-        stBitmap.enPixelFormat = PIXEL_FORMAT_RGB_1555;
-        stBitmap.u32Width = text_rgb1555->w;
-        stBitmap.u32Height = text_rgb1555->h;
-        SDL_LockSurface(text_rgb1555);
-        stBitmap.pData = text_rgb1555->pixels;
         s32Ret = HI_MPI_RGN_SetBitMap(RgnHandle, &stBitmap);
-        SDL_UnlockSurface(text_rgb1555);
         if(s32Ret != HI_SUCCESS)
         {
             g_critical("HI_MPI_RGN_SetBitMap failed with %#x!\n", s32Ret);
         }
-    }
-
-    if (NULL != text_rgb1555)
-    {
-        SDL_FreeSurface(text_rgb1555);
-    }
-    if (NULL != text)
-    {
-        SDL_FreeSurface(text);
+        g_free(stBitmap.pData);
     }
     
     return s32Ret;
@@ -259,8 +207,8 @@ static gint32 ipcam_media_osd_stop(IpcamMediaOsd *self)
         g_critical("HI_MPI_RGN_Destroy [%d] failed with %#x\n", RgnHandle, s32Ret);
     }
 
-    TTF_CloseFont(priv->font);
-	TTF_Quit();
+    g_object_unref(priv->osd_font);
+    
     return s32Ret;
 }
 static void ipcam_iosd_interface_init(IpcamIOSDInterface *iface)
