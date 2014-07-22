@@ -64,7 +64,7 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
     if (priv->last_time != now)
     {
         priv->last_time = now;
-        strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", localtime(&now));
+        strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S ", localtime(&now));
         ipcam_iosd_set_content(priv->osd, timeBuf);
     }
 }
