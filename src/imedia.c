@@ -50,9 +50,12 @@ static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
 static void ipcam_imedia_before(IpcamIMedia *imedia)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    IpcamOSDParameter parameters[IPCAM_OSD_TYPE_LAST];
+    memset(parameters, 0, sizeof(IpcamOSDParameter) * IPCAM_OSD_TYPE_LAST);
+    
     ipcam_imedia_sys_ctrl_init(priv->sys_ctrl);
     ipcam_ivideo_start(priv->video);
-    ipcam_iosd_start(priv->osd);
+    ipcam_iosd_start(priv->osd, parameters);
 }
 static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
 {
@@ -65,6 +68,6 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
     {
         priv->last_time = now;
         strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S ", localtime(&now));
-        ipcam_iosd_set_content(priv->osd, timeBuf);
+        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_DATETIME, timeBuf);
     }
 }
