@@ -1,4 +1,7 @@
+#include <stdio.h>
 #include <time.h>
+#include <messages.h>
+#include <json-glib/json-glib.h>
 #include "imedia.h"
 #include "media_sys_ctrl_interface.h"
 #include "media_video_interface.h"
@@ -21,6 +24,12 @@ G_DEFINE_TYPE_WITH_PRIVATE(IpcamIMedia, ipcam_imedia, IPCAM_BASE_APP_TYPE)
 
 static void ipcam_imedia_before(IpcamIMedia *imedia);
 static void ipcam_imedia_in_loop(IpcamIMedia *imedia);
+static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout);
+static void ipcam_imedia_query_osd_parameter(IpcamIMedia *imedia);
+static void ipcam_imedia_query_baseinfo_parameter(IpcamIMedia *imedia);
+static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, IpcamResponseMessage *res_msg);
+static void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, IpcamResponseMessage *res_msg);
+static void ipcam_imedia_osd_display_video_data(GObject *obj);
 
 static void ipcam_imedia_finalize(GObject *object)
 {
@@ -50,17 +59,12 @@ static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
 static void ipcam_imedia_before(IpcamIMedia *imedia)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
-    IpcamOSDParameter parameter;
-    memset(&parameter, 0, sizeof(IpcamOSDParameter));
     
     ipcam_imedia_sys_ctrl_init(priv->sys_ctrl);
     ipcam_ivideo_start(priv->video);
-    parameter.is_show = TRUE;
-    parameter.position.x = 10;
-    parameter.position.y = 10;
-    parameter.font_size = 24;
-    parameter.color.value = 0xFF00FF00;
-    ipcam_iosd_start(priv->osd, IPCAM_OSD_TYPE_DATETIME, &parameter);
+    ipcam_imedia_query_osd_parameter(imedia);
+    ipcam_imedia_query_baseinfo_parameter(imedia);
+    ipcam_base_app_add_timer(IPCAM_BASE_APP(imedia), "osd_display_video_data", "1", ipcam_imedia_osd_display_video_data);
 }
 static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
 {
@@ -74,5 +78,172 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
         priv->last_time = now;
         strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S ", localtime(&now));
         ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_DATETIME, timeBuf);
+    }
+}
+static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
+{
+    g_return_if_fail(IPCAM_IS_IMEDIA(obj));
+
+    if (!timeout && msg)
+    {
+#if 1
+        gchar *str = ipcam_message_to_string(msg);
+        g_print("result=\n%s\n", str);
+        g_free(str);
+#endif
+        IpcamResponseMessage *res_msg = IPCAM_RESPONSE_MESSAGE(msg);
+        gchar *action = NULL;
+        g_object_get(res_msg, "action", &action, NULL);
+        g_return_if_fail((NULL != action));
+
+        if (g_str_equal(action, "get_osd"))
+        {
+            ipcam_imedia_got_osd_parameter(IPCAM_IMEDIA(obj), res_msg);
+        }
+        else if (g_str_equal(action, "get_base_info"))
+        {
+            ipcam_imedia_got_baseinfo_parameter(IPCAM_IMEDIA(obj), res_msg);
+        }
+        else
+        {
+            g_critical("NEVER reached here!!!!");
+        }
+    }
+}
+static void ipcam_imedia_query_osd_parameter(IpcamIMedia *imedia)
+{
+    gchar *token = ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "token");
+    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE, "action", "get_osd", NULL);
+    JsonBuilder *builder = json_builder_new();
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "items");
+    json_builder_begin_array(builder);
+    json_builder_add_string_value(builder, "datetime");
+    json_builder_add_string_value(builder, "device_name");
+    json_builder_add_string_value(builder, "comment");
+    json_builder_add_string_value(builder, "frame_rate");
+    json_builder_add_string_value(builder, "bit_rate");
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+    JsonNode *body = json_builder_get_root(builder);
+    g_object_set(G_OBJECT(rq_msg), "body", body, NULL);
+    ipcam_base_app_send_message(IPCAM_BASE_APP(imedia), IPCAM_MESSAGE(rq_msg), "iconfig", token,
+                                message_handler, 10);
+    g_object_unref(rq_msg);
+    g_object_unref(builder);
+}
+static void ipcam_imedia_query_baseinfo_parameter(IpcamIMedia *imedia)
+{
+    gchar *token = ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "token");
+    IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE, "action", "get_base_info", NULL);
+    JsonBuilder *builder = json_builder_new();
+    json_builder_begin_object(builder);
+    json_builder_set_member_name(builder, "items");
+    json_builder_begin_array(builder);
+    json_builder_add_string_value(builder, "device_name");
+    json_builder_add_string_value(builder, "comment");
+    json_builder_end_array(builder);
+    json_builder_end_object(builder);
+    JsonNode *body = json_builder_get_root(builder);
+    g_object_set(G_OBJECT(rq_msg), "body", body, NULL);
+    ipcam_base_app_send_message(IPCAM_BASE_APP(imedia), IPCAM_MESSAGE(rq_msg), "iconfig", token,
+                                message_handler, 10);
+    g_object_unref(rq_msg);
+    g_object_unref(builder);
+}
+static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, IpcamResponseMessage *res_msg)
+{
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    IpcamOSDParameter parameter;
+    JsonNode *body = NULL;
+    JsonArray *res_array;
+    JsonObject *res_object;
+    gint i;
+    IPCAM_OSD_TYPE type = IPCAM_OSD_TYPE_LAST;
+
+    g_object_get(res_msg, "body", &body, NULL);
+    res_array = json_object_get_array_member(json_node_get_object(body), "items");
+
+    for (i = 0; i < json_array_get_length(res_array); i++)
+    {
+        const gchar *name;
+        res_object = json_array_get_object_element(res_array, i);
+        name = json_object_get_string_member(res_object, "name");
+        parameter.is_show = json_object_get_boolean_member(res_object, "isshow");
+        parameter.font_size = json_object_get_int_member(res_object, "size");
+        parameter.position.x = (json_object_get_int_member(res_object, "x") * 1280 / 100 / 16 + 1) * 16;
+        parameter.position.y = (json_object_get_int_member(res_object, "y") * 720 / 100 / 16 + 1) * 16;
+        parameter.color.value = json_object_get_int_member(res_object, "color");
+        if (g_str_equal(name, "datetime"))
+        {
+            type = IPCAM_OSD_TYPE_DATETIME;
+        }
+        else if (g_str_equal(name, "device_name"))
+        {
+            type = IPCAM_OSD_TYPE_DEVICE_NAME;
+        }
+        else if (g_str_equal(name, "comment"))
+        {
+            type = IPCAM_OSD_TYPE_COMMENT;
+        }
+        else if (g_str_equal(name, "frame_rate"))
+        {
+            type = IPCAM_OSD_TYPE_FRAMERATE;
+        }
+        else if (g_str_equal(name, "bit_rate"))
+        {
+            type = IPCAM_OSD_TYPE_BITRATE;
+        }
+        else
+        {
+            g_critical("NEVER reached here!!! name is %s\n", name);
+        }
+
+        if (type != IPCAM_OSD_TYPE_LAST)
+        {
+            g_print("start osd: %s, type = [%d]\n", name, type);
+            ipcam_iosd_start(priv->osd, type, &parameter);
+        }
+    }
+}
+static void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, IpcamResponseMessage *res_msg)
+{
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+    JsonNode *body = NULL;
+    JsonObject *res_object;
+    
+    g_object_get(res_msg, "body", &body, NULL);
+    res_object = json_object_get_object_member(json_node_get_object(body), "items");
+
+    const gchar *device_name = NULL;
+    device_name = json_object_get_string_member(res_object, "device_name");
+    g_print("%s\n", device_name);
+    if (NULL != device_name && strlen(device_name) > 0)
+    {
+        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_DEVICE_NAME, device_name);
+    }
+
+    const gchar *comment = NULL;
+    comment = json_object_get_string_member(res_object, "comment");
+    if (NULL != comment && strlen(comment) > 0)
+    {
+        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_COMMENT, comment);
+    }
+}
+static void ipcam_imedia_osd_display_video_data(GObject *obj)
+{
+    g_return_if_fail(IPCAM_IS_IMEDIA(obj));
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(IPCAM_IMEDIA(obj));
+
+    FILE *rc_file = fopen("/proc/umap/rc", "r");
+    if (NULL != rc_file)
+    {
+        gchar *frame_rate = "30fps";
+        gchar *bit_rate = "1486Kbps";
+        
+        fclose(rc_file);
+        
+        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_FRAMERATE, frame_rate);
+        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_BITRATE, bit_rate);
     }
 }

@@ -59,7 +59,7 @@ static gint32 ipcam_media_osd_start(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, Ip
         priv->stRgnAttr[type].enType = OVERLAY_RGN;
         priv->stRgnAttr[type].unAttr.stOverlay.enPixelFmt = PIXEL_FORMAT_RGB_1555;
         priv->stRgnAttr[type].unAttr.stOverlay.stSize.u32Width  = (parameter->font_size / 16 + 1) * 16 * 30;
-        priv->stRgnAttr[type].unAttr.stOverlay.stSize.u32Height = (parameter->font_size / 16 + 2) * 16;
+        priv->stRgnAttr[type].unAttr.stOverlay.stSize.u32Height = (parameter->font_size / 16 + 1) * 16;
         priv->stRgnAttr[type].unAttr.stOverlay.u32BgColor = 0x7FFF;
 
         s32Ret = HI_MPI_RGN_Create(priv->RgnHandle[type], &priv->stRgnAttr[type]);
@@ -79,7 +79,7 @@ static gint32 ipcam_media_osd_start(IpcamMediaOsd *self, IPCAM_OSD_TYPE type, Ip
         priv->stChnAttr[type].unChnAttr.stOverlayChn.stPoint.s32X = (parameter->position.x / 16 + 1) * 16;
         priv->stChnAttr[type].unChnAttr.stOverlayChn.stPoint.s32Y = (parameter->position.y / 16 + 1) * 16;
         priv->stChnAttr[type].unChnAttr.stOverlayChn.u32BgAlpha = 0;
-        priv->stChnAttr[type].unChnAttr.stOverlayChn.u32FgAlpha = 128;
+        priv->stChnAttr[type].unChnAttr.stOverlayChn.u32FgAlpha = 64;
         priv->stChnAttr[type].unChnAttr.stOverlayChn.u32Layer = 0;
 
         priv->stChnAttr[type].unChnAttr.stOverlayChn.stQpInfo.bAbsQp = HI_FALSE;
@@ -147,6 +147,13 @@ static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE ty
     gboolean bRet = FALSE;
     BITMAP_S stBitmap;
     IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
+
+    if (priv->content[type] != content && type != IPCAM_OSD_TYPE_DATETIME)
+    {
+        g_free(priv->content[type]);
+        priv->content[type] = g_strdup(content);
+    }
+        
     g_return_val_if_fail((NULL != priv->osd_font), s32Ret);
     g_return_val_if_fail((NULL != content), s32Ret);
 
@@ -169,12 +176,6 @@ static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE ty
             g_critical("HI_MPI_RGN_SetBitMap failed with %#x!\n", s32Ret);
         }
         g_free(stBitmap.pData);
-    }
-
-    if (priv->content[type] != content && type != IPCAM_OSD_TYPE_DATETIME)
-    {
-        g_free(priv->content[type]);
-        priv->content[type] = g_strdup(content);
     }
     
     return s32Ret;
