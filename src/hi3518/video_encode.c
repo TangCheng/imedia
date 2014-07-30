@@ -129,13 +129,22 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self)
     stAttr.stVeAttr.stAttrH264e.bVIField = HI_FALSE;/*the sign of the VI picture is field or frame. Invalidate for hi3516*/
     // omit other video encode assignments here.
     /* set h264 chnnel rate control attribute */
-    stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR ;
-    stAttr.stRcAttr.stAttrH264Cbr.u32BitRate = 2 * 1024;
+    stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264VBR ;
+    /*
+    stAttr.stRcAttr.stAttrH264Cbr.u32BitRate = 1.5 * 1024;
     stAttr.stRcAttr.stAttrH264Cbr.fr32TargetFrmRate = 30;
     stAttr.stRcAttr.stAttrH264Cbr.u32ViFrmRate = 30;
     stAttr.stRcAttr.stAttrH264Cbr.u32Gop = 30;
     stAttr.stRcAttr.stAttrH264Cbr.u32FluctuateLevel = 0;
     stAttr.stRcAttr.stAttrH264Cbr.u32StatTime = 1;
+    */
+    stAttr.stRcAttr.stAttrH264Vbr.u32MaxBitRate = 1.5 * 1024;
+    stAttr.stRcAttr.stAttrH264Vbr.fr32TargetFrmRate = 30;
+    stAttr.stRcAttr.stAttrH264Vbr.u32ViFrmRate = 30;
+    stAttr.stRcAttr.stAttrH264Vbr.u32Gop = 30;
+    stAttr.stRcAttr.stAttrH264Vbr.u32MinQp = 0;
+    stAttr.stRcAttr.stAttrH264Vbr.u32MaxQp = 51;
+    stAttr.stRcAttr.stAttrH264Vbr.u32StatTime = 1;
     // omit other rate control assignments here.
     s32Ret = HI_MPI_VENC_CreateGroup(VeGroup);
     if (HI_SUCCESS != s32Ret)
