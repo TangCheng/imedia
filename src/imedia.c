@@ -50,12 +50,17 @@ static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
 static void ipcam_imedia_before(IpcamIMedia *imedia)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
-    IpcamOSDParameter parameters[IPCAM_OSD_TYPE_LAST];
-    memset(parameters, 0, sizeof(IpcamOSDParameter) * IPCAM_OSD_TYPE_LAST);
+    IpcamOSDParameter parameter;
+    memset(&parameter, 0, sizeof(IpcamOSDParameter));
     
     ipcam_imedia_sys_ctrl_init(priv->sys_ctrl);
     ipcam_ivideo_start(priv->video);
-    ipcam_iosd_start(priv->osd, parameters);
+    parameter.is_show = TRUE;
+    parameter.position.x = 10;
+    parameter.position.y = 10;
+    parameter.font_size = 24;
+    parameter.color.value = 0xFF00FF00;
+    ipcam_iosd_start(priv->osd, IPCAM_OSD_TYPE_DATETIME, &parameter);
 }
 static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
 {

@@ -55,7 +55,7 @@ typedef struct _IpcamOSDParameter
 struct _IpcamIOSDInterface
 {
     GTypeInterface parent_iface;
-    gint32 (*start)(IpcamIOSD *self, IpcamOSDParameter parameters[]);
+    gint32 (*start)(IpcamIOSD *self, IPCAM_OSD_TYPE type, IpcamOSDParameter *parameter);
     gint32 (*show)(IpcamIOSD *self, IPCAM_OSD_TYPE type, const gboolean show);
     gint32 (*set_pos)(IpcamIOSD *self, IPCAM_OSD_TYPE type, const Point pos);
     gint32 (*set_fontsize)(IpcamIOSD *self, IPCAM_OSD_TYPE type, const guint fsize);
@@ -65,7 +65,7 @@ struct _IpcamIOSDInterface
 };
 
 GType ipcam_iosd_get_type(void);
-gint32 ipcam_iosd_start(IpcamIOSD *self, IpcamOSDParameter parameters[]);
+gint32 ipcam_iosd_start(IpcamIOSD *self, IPCAM_OSD_TYPE type, IpcamOSDParameter *parameter);
 gint32 ipcam_iosd_show(IpcamIOSD *self, IPCAM_OSD_TYPE type, const gboolean show);
 gint32 ipcam_iosd_set_pos(IpcamIOSD *self, IPCAM_OSD_TYPE type, const Point pos);
 gint32 ipcam_iosd_set_fontsize(IpcamIOSD *self, IPCAM_OSD_TYPE type, const guint fsize);
