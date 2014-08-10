@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <string.h>
+#include <sys/types.h>
+#include <regex.h>
 #include <time.h>
 #include <messages.h>
 #include <json-glib/json-glib.h>
@@ -18,7 +21,13 @@ typedef struct _IpcamIMediaPrivate
     IpcamIVideo *video;
     IpcamIOSD *osd;
     time_t last_time;
+    regex_t reg;
+    gchar *bit_rate;
+    gchar *frame_rate;
 } IpcamIMediaPrivate;
+
+#define BIT_RATE_BUF_SIZE 16
+#define FRAME_RATE_BUF_SIZE 16
 
 G_DEFINE_TYPE_WITH_PRIVATE(IpcamIMedia, ipcam_imedia, IPCAM_BASE_APP_TYPE)
 
@@ -37,14 +46,21 @@ static void ipcam_imedia_finalize(GObject *object)
     g_clear_object(&priv->sys_ctrl);
     g_clear_object(&priv->video);
     g_clear_object(&priv->osd);
+    regfree(&priv->reg);
+    g_free(priv->bit_rate);
+    g_free(priv->frame_rate);
     G_OBJECT_CLASS(ipcam_imedia_parent_class)->finalize(object);
 }
 static void ipcam_imedia_init(IpcamIMedia *self)
 {
 	IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(self);
+    const gchar *pattern = "InsBr.*InsFr.*[\n]+";
+    regcomp(&priv->reg, pattern, REG_EXTENDED | REG_NEWLINE);
     priv->sys_ctrl = g_object_new(IPCAM_MEDIA_SYS_CTRL_TYPE, NULL);
     priv->video = g_object_new(IPCAM_MEDIA_VIDEO_TYPE, NULL);
     priv->osd = g_object_new(IPCAM_MEDIA_OSD_TYPE, NULL);
+    priv->bit_rate = g_malloc(BIT_RATE_BUF_SIZE);
+    priv->frame_rate = g_malloc(FRAME_RATE_BUF_SIZE);
     time(&priv->last_time);
 }
 static void ipcam_imedia_class_init(IpcamIMediaClass *klass)
@@ -230,6 +246,44 @@ static void ipcam_imedia_got_baseinfo_parameter(IpcamIMedia *imedia, IpcamRespon
         ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_COMMENT, comment);
     }
 }
+static void ipcam_imedia_osd_int_to_string(IpcamIMedia *imedia,
+                                           gint val,
+                                           gchar **string,
+                                           gint len,
+                                           gchar *extra)
+{
+    memset(*string, 0, len);
+    sprintf(*string, "%d%s", val, extra);
+}
+static void ipcam_imedia_osd_lookup_video_run_info(IpcamIMedia *imedia,
+                                                   gchar *buffer)
+{
+    const size_t nmatch = 1;
+    regmatch_t pmatch[1];
+    gint status;
+    gint i;
+    IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
+
+    status = regexec(&priv->reg, buffer, nmatch, pmatch, 0);
+    if (REG_NOMATCH != status)
+    {
+        gchar *p = buffer + pmatch[0].rm_eo;
+        gint id;
+        gint bit_rate_val;
+        gint frame_rate_val;
+        sscanf(p, "%d%d%d", &id, &bit_rate_val, &frame_rate_val);
+        /*
+        for (gint i = pmatch[0].rm_so; i < pmatch[0].rm_eo; i++)
+        {
+            g_print("%c", buffer[i]);
+        }
+        g_print("\n");
+        */
+        //g_print("%d %d %d\n", id, bit_rate_val, frame_rate_val);
+        ipcam_imedia_osd_int_to_string(imedia, bit_rate_val, &priv->bit_rate, BIT_RATE_BUF_SIZE, "kpbs");
+        ipcam_imedia_osd_int_to_string(imedia, frame_rate_val, &priv->frame_rate, FRAME_RATE_BUF_SIZE, "fps");
+    }
+}
 static void ipcam_imedia_osd_display_video_data(GObject *obj)
 {
     g_return_if_fail(IPCAM_IS_IMEDIA(obj));
@@ -238,12 +292,15 @@ static void ipcam_imedia_osd_display_video_data(GObject *obj)
     FILE *rc_file = fopen("/proc/umap/rc", "r");
     if (NULL != rc_file)
     {
-        gchar *frame_rate = "30fps";
-        gchar *bit_rate = "1486Kbps";
-        
+        gchar *buffer = g_malloc0(4096);
+        if (fread(buffer, 1, 4096, rc_file) > 0)
+        {
+            ipcam_imedia_osd_lookup_video_run_info(IPCAM_IMEDIA(obj), buffer);
+        }        
         fclose(rc_file);
-        
-        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_FRAMERATE, frame_rate);
-        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_BITRATE, bit_rate);
+        g_free(buffer);
+
+        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_FRAMERATE, priv->frame_rate);
+        ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_BITRATE, priv->bit_rate);
     }
 }
