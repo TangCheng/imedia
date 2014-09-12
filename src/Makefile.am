@@ -9,6 +9,10 @@ if HI3518
 MPP_CFLAGS = -I$(top_srcdir)/src/hi3518/mpp2/include
 MPP_LIBDIR = $(top_srcdir)/src/hi3518/mpp2/lib
 endif
+if HI3516
+MPP_CFLAGS = -I$(top_srcdir)/src/hi3518/mpp2/include
+MPP_LIBDIR = $(top_srcdir)/src/hi3518/mpp2/lib
+endif
 else
 MPP_CFLAGS = $(MPPCFLAGS)
 MPP_LIBDIR = $(MPPLIBDIR)
@@ -38,6 +42,17 @@ imedia_SOURCES = \
 	main.c
 
 if HI3518
+imedia_SOURCES += \
+	hi3518/media_sys_ctrl.c \
+	hi3518/media_video.c \
+	hi3518/media_osd.c \
+	hi3518/isp.c \
+	hi3518/video_encode.c \
+	hi3518/video_input.c \
+	hi3518/video_process_subsystem.c
+endif
+
+if HI3516
 imedia_SOURCES += \
 	hi3518/media_sys_ctrl.c \
 	hi3518/media_video.c \

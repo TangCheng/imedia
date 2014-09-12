@@ -24,9 +24,9 @@ LT_INIT
 PKG_CHECK_MODULES(IMEDIA, [libzmq json-glib-1.0 glib-2.0 gobject-2.0 libipcam_base-0.1.0 freetype2 SDL2_ttf])
 
 AC_ARG_ENABLE([hi3518],
-	AS_HELP_STRING([--enable-hi3518],[Build with hi3518 support (default: enabled)]),
+	AS_HELP_STRING([--enable-hi3518],[Build with hi3518 support (default: disabled)]),
 	[enable_hi3518=$enableval],
-	[enable_hi3518=yes])
+	[enable_hi3518=no])
 
 AC_ARG_ENABLE([hi3516],
 	AS_HELP_STRING([--enable-hi3516],[Build with hi3516 support (default: disabled)]),
