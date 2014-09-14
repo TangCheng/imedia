@@ -138,7 +138,7 @@ gint32 ipcam_video_encode_start(IpcamVideoEncode *self)
     stAttr.stRcAttr.stAttrH264Cbr.u32FluctuateLevel = 0;
     stAttr.stRcAttr.stAttrH264Cbr.u32StatTime = 1;
     */
-    stAttr.stRcAttr.stAttrH264Vbr.u32MaxBitRate = 1.5 * 1024;
+    stAttr.stRcAttr.stAttrH264Vbr.u32MaxBitRate = 2 * 1024;
     stAttr.stRcAttr.stAttrH264Vbr.fr32TargetFrmRate = 30;
     stAttr.stRcAttr.stAttrH264Vbr.u32ViFrmRate = 30;
     stAttr.stRcAttr.stAttrH264Vbr.u32Gop = 30;

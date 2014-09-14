@@ -56,6 +56,10 @@ static gint32 ipcam_isp_load_sensor_lib(IpcamIsp *self)
     {
         priv->sensor_lib_handle = dlopen("/usr/lib/libsns_nt99141.so", RTLD_LAZY);
     }
+    else if (g_str_equal(priv->sensor_type, "IMX222"))
+    {
+        priv->sensor_lib_handle = dlopen("/usr/lib/libsns_imx122.so", RTLD_LAZY);
+    }
     else
     {
         g_warning("Unknown sensor type %s\n!", priv->sensor_type);
@@ -96,6 +100,13 @@ static void ipcam_isp_init_image_attr(IpcamIsp *self, ISP_IMAGE_ATTR_S *pstImage
         pstImageAttr->u16FrameRate = 30;
         pstImageAttr->u16Width     = 1280;
         pstImageAttr->u16Height    = 720;
+    }
+    else if (g_str_equal(priv->sensor_type, "IMX222"))
+    {
+        pstImageAttr->enBayer      = BAYER_RGGB;
+        pstImageAttr->u16FrameRate = 30;
+        pstImageAttr->u16Width     = 1920;
+        pstImageAttr->u16Height    = 1080;
     }
     else
     {
@@ -187,6 +198,14 @@ gint32 ipcam_isp_start(IpcamIsp *self)
     }
 
     stInputTiming.enWndMode = ISP_WIND_NONE;
+    if (g_str_equal(priv->sensor_type, "IMX222"))
+    {
+        stInputTiming.enWndMode = ISP_WIND_ALL;
+        stInputTiming.u16HorWndStart = 200;
+        stInputTiming.u16HorWndLength = 1920;
+        stInputTiming.u16VerWndStart = 12;
+        stInputTiming.u16VerWndLength = 1080;
+    }
     s32Ret = HI_MPI_ISP_SetInputTiming(&stInputTiming);
     if (s32Ret != HI_SUCCESS)
     {

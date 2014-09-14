@@ -9,7 +9,7 @@
 #include "media_sys_ctrl_interface.h"
 #include "media_video_interface.h"
 #include "media_osd_interface.h"
-#ifdef HI3518
+#if defined(HI3518) || defined(HI3516)
 #include "hi3518/media_sys_ctrl.h"
 #include "hi3518/media_video.h"
 #include "hi3518/media_osd.h"

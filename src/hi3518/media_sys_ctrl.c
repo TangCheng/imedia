@@ -5,6 +5,7 @@
 #include <mpi_vb.h>
 #include <memory.h>
 #include "media_sys_ctrl.h"
+#include "stream_descriptor.h"
 #include "../media_sys_ctrl_interface.h"
 
 static void ipcam_imedia_sys_ctrl_interface_init(IpcamIMediaSysCtrlInterface *iface);
@@ -17,8 +18,8 @@ G_DEFINE_TYPE_WITH_CODE(IpcamMediaSysCtrl, ipcam_media_sys_ctrl, G_TYPE_OBJECT,
 
 #define SYS_ALIGN_WIDTH      64
 
-#define IMAGE_WIDTH          1280
-#define IMAGE_HEIGHT         720
+//#define IMAGE_WIDTH          1280
+//#define IMAGE_HEIGHT         720
 
 static void ipcam_media_sys_ctrl_finalize(GObject *object)
 {

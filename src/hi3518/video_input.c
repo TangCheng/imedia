@@ -164,6 +164,14 @@ gint32 ipcam_video_input_start(IpcamVideoInput *self)
             stViDevAttr.enDataPath = VI_PATH_ISP;
             stViDevAttr.enInputDataType = VI_DATA_TYPE_RGB;
         }
+        else if (g_str_equal(priv->sensor_type, "IMX222"))
+        {
+            stViDevAttr.au32CompMask[0] = 0xFFF00000;
+            stViDevAttr.stSynCfg.enVsync = VI_VSYNC_PULSE;
+            stViDevAttr.stSynCfg.enVsyncValid = VI_VSYNC_NORM_PULSE;
+            stViDevAttr.enDataPath = VI_PATH_ISP;
+            stViDevAttr.enInputDataType = VI_DATA_TYPE_RGB;
+        }
         else if (g_str_equal(priv->sensor_type, "NT99141"))
         {
             stViDevAttr.au32CompMask[0] = 0xFF000000;

@@ -3,8 +3,15 @@
 
 #include <glib.h>
 
+#if defined(HI3516)
+#define IMAGE_WIDTH          1920
+#define IMAGE_HEIGHT         1080
+#elif defined(HI3518)
 #define IMAGE_WIDTH          1280
-#define IMAGE_HEIGHT         720
+#define IMAGE_HEIGHT         1720
+#else
+#error "NO chip selected!"
+#endif
 
 enum StreamType
 {
