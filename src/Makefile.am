@@ -49,7 +49,8 @@ imedia_SOURCES += \
 	hi3518/isp.c \
 	hi3518/video_encode.c \
 	hi3518/video_input.c \
-	hi3518/video_process_subsystem.c
+	hi3518/video_process_subsystem.c \
+	hi3518/bitmap.c
 endif
 
 if HI3516
@@ -60,7 +61,8 @@ imedia_SOURCES += \
 	hi3518/isp.c \
 	hi3518/video_encode.c \
 	hi3518/video_input.c \
-	hi3518/video_process_subsystem.c
+	hi3518/video_process_subsystem.c \
+	hi3518/bitmap.c
 endif
 
 imedia_LDFLAGS = 
