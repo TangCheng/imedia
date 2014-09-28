@@ -28,8 +28,8 @@ typedef enum _IPCAM_OSD_TYPE
 
 typedef struct _Point
 {
-    guint x;
-    guint y;
+    guint32 x;
+    guint32 y;
 } Point;
 
 typedef union _Color

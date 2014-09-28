@@ -9,6 +9,7 @@
 #include "media_sys_ctrl_interface.h"
 #include "media_video_interface.h"
 #include "media_osd_interface.h"
+#include "stream_descriptor.h"
 #if defined(HI3518) || defined(HI3516)
 #include "hi3518/media_sys_ctrl.h"
 #include "hi3518/media_video.h"
@@ -58,7 +59,6 @@ static void ipcam_imedia_init(IpcamIMedia *self)
     regcomp(&priv->reg, pattern, REG_EXTENDED | REG_NEWLINE);
     priv->sys_ctrl = g_object_new(IPCAM_MEDIA_SYS_CTRL_TYPE, NULL);
     priv->video = g_object_new(IPCAM_MEDIA_VIDEO_TYPE, NULL);
-    priv->osd = g_object_new(IPCAM_MEDIA_OSD_TYPE, NULL);
     priv->bit_rate = g_malloc(BIT_RATE_BUF_SIZE);
     priv->frame_rate = g_malloc(FRAME_RATE_BUF_SIZE);
     time(&priv->last_time);
@@ -78,6 +78,7 @@ static void ipcam_imedia_before(IpcamIMedia *imedia)
     
     ipcam_imedia_sys_ctrl_init(priv->sys_ctrl);
     ipcam_ivideo_start(priv->video);
+    priv->osd = g_object_new(IPCAM_MEDIA_OSD_TYPE, NULL);
     ipcam_imedia_query_osd_parameter(imedia);
     ipcam_imedia_query_baseinfo_parameter(imedia);
     ipcam_base_app_add_timer(IPCAM_BASE_APP(imedia), "osd_display_video_data", "1", ipcam_imedia_osd_display_video_data);
@@ -187,8 +188,8 @@ static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, IpcamResponseMes
         name = json_object_get_string_member(res_object, "name");
         parameter.is_show = json_object_get_boolean_member(res_object, "isshow");
         parameter.font_size = json_object_get_int_member(res_object, "size");
-        parameter.position.x = (json_object_get_int_member(res_object, "x") * 1280 / 100 / 16 + 1) * 16;
-        parameter.position.y = (json_object_get_int_member(res_object, "y") * 720 / 100 / 16 + 1) * 16;
+        parameter.position.x = json_object_get_int_member(res_object, "x") * (guint32)IMAGE_WIDTH / 1000;
+        parameter.position.y = json_object_get_int_member(res_object, "y") * (guint32)IMAGE_HEIGHT / 1000;
         parameter.color.value = json_object_get_int_member(res_object, "color");
         if (g_str_equal(name, "datetime"))
         {
