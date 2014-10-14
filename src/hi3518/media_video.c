@@ -4,7 +4,8 @@
 #include <hi_comm_venc.h>
 #include <mpi_sys.h>
 #include <mpi_venc.h>
-#include <memory.h>
+//#include <memory.h>
+#include <hi_mem.h>
 #include <zmq.h>
 #include "stream_descriptor.h"
 #include "media_video_interface.h"
@@ -334,21 +335,19 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                 }
 
                 /*******************************************************
-                 step 2.4 : save frame to file
+                 step 2.4 : send frame to live stream
                 *******************************************************/
                 unsigned newFrameSize = 0; //%%% TO BE WRITTEN %%%
                 HI_U8 *p = NULL;
                 for (i = 0; i < stStream.u32PackCount; i++)
                 {
                     newFrameSize += (stStream.pstPack[i].u32Len[0]);
-                    /*
                     p = stStream.pstPack[i].pu8Addr[0];
                     if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
                     {
                         newFrameSize -= 4;
                         //envir() << "packet " << i << " pu8Addr[0][5] is " << p[4] << " length is " << newFrameSize << "\n";
                     }
-                    */
                     if (stStream.pstPack[i].u32Len[1] > 0)
                     {
                         newFrameSize += (stStream.pstPack[i].u32Len[1]);
@@ -364,33 +363,33 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                 }
                 if (newFrameSize > 0)
                 {
-                    //gettimeofday(&fPresentationTime, NULL); // If you have a more accurate time - e.g.,
-                                                              //from an encoder - then use that instead.
-                    VideoStreamData *vsd = (VideoStreamData *)g_malloc(sizeof(VideoStreamData) + newFrameSize);
+                    VideoStreamData *vsd = (VideoStreamData *)g_malloc(sizeof(VideoStreamData));// + newFrameSize);
+                    gint flags = ZMQ_SNDMORE;
                     vsd->pts.tv_sec = stStream.pstPack[0].u64PTS / 1000000;
                     vsd->pts.tv_usec = stStream.pstPack[0].u64PTS % 1000000;
                     // Deliver the data here:
                     vsd->len = newFrameSize;
-                    // If the device is *not* a 'live source' (e.g., it comes instead from a file or buffer),
-                    // then set "fDurationInMicroseconds" here.
+                    zmq_send(priv->publisher, vsd, sizeof(VideoStreamData), flags);
                     HI_U64 pos = 0;
                     HI_U64 left = 0;
                     for (i = 0; i < stStream.u32PackCount; i++)
                     {
                         left = (vsd->len - pos);
                         p = stStream.pstPack[i].pu8Addr[0];
-                        /*
                         if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
                         {
                             left = MIN(left, stStream.pstPack[i].u32Len[0] - 4);
-                            left = left < (stStream.pstPack[i].u32Len[0] - 4) ? left : (stStream.pstPack[i].u32Len[0] - 4);
-                            memcpy(vsd->data + pos, p + 4, left);
+                            //left = left < (stStream.pstPack[i].u32Len[0] - 4) ? left : (stStream.pstPack[i].u32Len[0] - 4);
+                            //memcpy(vsd->data + pos, p + 4, left);
+                            if (pos + left >= vsd->len) flags = 0;
+                            zmq_send(priv->publisher, p + 4, left, flags);
                         }
                         else
-                        */
                         {
                             left = MIN(left, stStream.pstPack[i].u32Len[0]);
-                            memcpy(vsd->data + pos, p, left);
+                            //memcpy(vsd->data + pos, p, left);
+                            if (pos + left >= vsd->len) flags = 0;
+                            zmq_send(priv->publisher, p, left, flags);
                         }
                         pos += left;
                         if (pos >= vsd->len) break;
@@ -402,19 +401,23 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                             if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x01)
                             {
                                 left = MIN(left, stStream.pstPack[i].u32Len[1] - 4);
-                                memcpy(vsd->data + pos, p + 4, left);
+                                //memcpy(vsd->data + pos, p + 4, left);
+                                if (pos + left >= vsd->len) flags = 0;
+                                zmq_send(priv->publisher, p + 4, left, flags);
                             }
                             else
                             */
                             {
                                 left = MIN(left, stStream.pstPack[i].u32Len[1]);
-                                memcpy(vsd->data + pos, p, left);
+                                //memcpy(vsd->data + pos, p, left);
+                                if (pos + left >= vsd->len) flags = 0;
+                                zmq_send(priv->publisher, p, left, flags);
                             }
                             pos += left;
                             if (pos >= vsd->len) break;
                         }
                     }
-                    s32Ret = zmq_send(priv->publisher, vsd, sizeof(VideoStreamData) + newFrameSize, 0);
+                    //s32Ret = zmq_send(priv->publisher, vsd, sizeof(VideoStreamData) + newFrameSize, 0);
                     g_free(vsd);
                 }
                 

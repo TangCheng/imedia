@@ -67,7 +67,7 @@ endif
 
 imedia_LDFLAGS = 
 
-imedia_LDADD = $(IMEDIA_LIBS) $(MPP_LIBDIR)/libmpi.a $(MPP_LIBDIR)/lib_hiae.a $(MPP_LIBDIR)/libanr.a $(MPP_LIBDIR)/libaec.a $(MPP_LIBDIR)/lib_hiaf.a $(MPP_LIBDIR)/lib_hiawb.a $(MPP_LIBDIR)/libmem.a $(MPP_LIBDIR)/libtde.a $(MPP_LIBDIR)/libVoiceEngine.a $(MPP_LIBDIR)/libresampler.a $(MPP_LIBDIR)/libisp.a -ldl
+imedia_LDADD = $(IMEDIA_LIBS) $(MPP_LIBDIR)/libmpi.a $(MPP_LIBDIR)/lib_hiae.a $(MPP_LIBDIR)/libanr.a $(MPP_LIBDIR)/libaec.a $(MPP_LIBDIR)/lib_hiaf.a $(MPP_LIBDIR)/lib_hiawb.a $(MPP_LIBDIR)/libmem.a $(MPP_LIBDIR)/libtde.a $(MPP_LIBDIR)/libVoiceEngine.a $(MPP_LIBDIR)/libresampler.a $(MPP_LIBDIR)/libisp.a $(MPP_LIBDIR)/libmem.a -ldl
 
 SUBDIRS = \
 	config

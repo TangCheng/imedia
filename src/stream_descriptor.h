@@ -72,7 +72,7 @@ typedef struct _VideoStreamData
 {
      guint32 len;
      struct timeval pts;
-     gchar data[0];
+     //gchar data[0];
 } VideoStreamData;
 
 #endif /* __STREAM_DESCRIPTOR_H__ */
