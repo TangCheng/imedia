@@ -1,6 +1,6 @@
 #include <hi_defines.h>
 #include <stdlib.h>
-#include <string.h>
+#include <hi_mem.h>
 #include "bitmap.h"
 #include "stream_descriptor.h"
 
@@ -43,16 +43,12 @@ void ipcam_bitmap_clear(IpcamBitmap *self, RECT_S *area)
     g_return_if_fail(area);
 
     IpcamBitmapPrivate *priv = ipcam_bitmap_get_instance_private(self);
-    guint x = 0;
     guint y = 0;
-    HI_U16 *u16Data;
-    for (x = area->s32X; x < area->u32Width; x++)
+    HI_U8 *u8Data;
+    for (y = area->s32Y; y < area->u32Height; y++)
     {
-        for (y = area->s32Y; y < area->u32Height; y++)
-        {
-            u16Data = priv->data.pData + 2 * (x + y * area->u32Width);
-            *u16Data = 0;
-        }
+        u8Data = priv->data.pData + 2 * (area->s32X + y * area->u32Width);
+        memset(u8Data, 0, 2 * area->u32Width);
     }
 }
 void ipcam_bitmap_bitblt(IpcamBitmap *self, BITMAP_S *src, POINT_S *pos)
@@ -62,17 +58,13 @@ void ipcam_bitmap_bitblt(IpcamBitmap *self, BITMAP_S *src, POINT_S *pos)
     g_return_if_fail(pos);
 
     IpcamBitmapPrivate *priv = ipcam_bitmap_get_instance_private(self);
-    guint x = 0;
     guint y = 0;
-    HI_U16 *u16Src;
-    HI_U16 *u16Dst;
-    for (x = 0; x < src->u32Width; x++)
+    HI_U8 *u8Src;
+    HI_U8 *u8Dst;
+    for (y = 0; y < src->u32Height; y++)
     {
-        for (y = 0; y < src->u32Height; y++)
-        {
-            u16Dst = priv->data.pData + 2 * ((x + pos->s32X) + (y + pos->s32Y) * priv->data.u32Width);
-            u16Src = src->pData + 2 * (x + y * src->u32Width);
-            *u16Dst = *u16Src;
-        }
+        u8Dst = priv->data.pData + 2 * (pos->s32X + (y + pos->s32Y) * priv->data.u32Width);
+        u8Src = src->pData + 2 * y * src->u32Width;
+        memcpy(u8Dst, u8Src, 2 * src->u32Width);
     }
 }

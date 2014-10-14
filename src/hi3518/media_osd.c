@@ -111,9 +111,9 @@ static void ipcam_media_osd_init(IpcamMediaOsd *self)
         priv->stChnAttr.unChnAttr.stOverlayChn.stQpInfo.bAbsQp = HI_FALSE;
         priv->stChnAttr.unChnAttr.stOverlayChn.stQpInfo.s32Qp  = 0;
 
-        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Width = 64;
-        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Height = 64;
-        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 80;
+        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Width = 16;
+        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Height = 16;
+        priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 70;
         priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.enChgMod = LESSTHAN_LUM_THRESH;
         priv->stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = HI_TRUE;
 
@@ -219,12 +219,8 @@ static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE ty
             priv->rect[type].u32Width = stBitmap.u32Width;
             priv->rect[type].u32Height = stBitmap.u32Height;
             ipcam_bitmap_bitblt(priv->bitmap, &stBitmap, (POINT_S *)&priv->rect[type]);
-            s32Ret = HI_MPI_RGN_SetBitMap(priv->RgnHandle, ipcam_bitmap_get_data(priv->bitmap));
-            if(s32Ret != HI_SUCCESS)
-            {
-                g_critical("HI_MPI_RGN_SetBitMap failed with %#x!\n", s32Ret);
-            }
             g_free(stBitmap.pData);
+            s32Ret = HI_SUCCESS;
         }
     }
     else
@@ -234,9 +230,20 @@ static gint32 ipcam_media_osd_set_content(IpcamMediaOsd *self, IPCAM_OSD_TYPE ty
     
     return s32Ret;
 }
-static gint32 ipcam_media_osd_stop(IpcamMediaOsd *self)
+static gint32 ipcam_media_osd_invalidate(IpcamMediaOsd *self)
 {
     HI_S32 s32Ret = HI_FAILURE;
+    IpcamMediaOsdPrivate *priv = IPCAM_MEDIA_OSD_GET_PRIVATE(self);
+    s32Ret = HI_MPI_RGN_SetBitMap(priv->RgnHandle, ipcam_bitmap_get_data(priv->bitmap));
+    if(s32Ret != HI_SUCCESS)
+    {
+        g_critical("HI_MPI_RGN_SetBitMap failed with %#x!\n", s32Ret);
+    }
+    return s32Ret;
+}
+static gint32 ipcam_media_osd_stop(IpcamMediaOsd *self)
+{
+    HI_S32 s32Ret = HI_SUCCESS;
     
     return s32Ret;
 }
@@ -248,5 +255,6 @@ static void ipcam_iosd_interface_init(IpcamIOSDInterface *iface)
     iface->set_fontsize = ipcam_media_osd_set_fontsize;
     iface->set_color = ipcam_media_osd_set_color;
     iface->set_content = ipcam_media_osd_set_content;
+    iface->invalidate = ipcam_media_osd_invalidate;
     iface->stop = ipcam_media_osd_stop;
 }

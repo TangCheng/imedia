@@ -61,6 +61,7 @@ struct _IpcamIOSDInterface
     gint32 (*set_fontsize)(IpcamIOSD *self, IPCAM_OSD_TYPE type, const guint fsize);
     gint32 (*set_color)(IpcamIOSD *self, IPCAM_OSD_TYPE type, const Color color);
     gint32 (*set_content)(IpcamIOSD *self, IPCAM_OSD_TYPE type, const gchar *content);
+    gint32 (*invalidate)(IpcamIOSD *self);
     gint32 (*stop)(IpcamIOSD *self);
 };
 
@@ -71,6 +72,7 @@ gint32 ipcam_iosd_set_pos(IpcamIOSD *self, IPCAM_OSD_TYPE type, const Point pos)
 gint32 ipcam_iosd_set_fontsize(IpcamIOSD *self, IPCAM_OSD_TYPE type, const guint fsize);
 gint32 ipcam_iosd_set_color(IpcamIOSD *self, IPCAM_OSD_TYPE type, const Color color);
 gint32 ipcam_iosd_set_content(IpcamIOSD *self, IPCAM_OSD_TYPE type, const gchar *content);
+gint32 ipcam_iosd_invalidate(IpcamIOSD *self);
 gint32 ipcam_iosd_stop(IpcamIOSD *self);
 
 G_END_DECLS

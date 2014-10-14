@@ -1,6 +1,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
-#include <memory.h>
+#include <hi_mem.h>
 #include "media_osd_interface.h"
 #include "osd_font.h"
 

@@ -49,6 +49,12 @@ gint32 ipcam_iosd_set_content(IpcamIOSD *self, IPCAM_OSD_TYPE type, const gchar 
     return IPCAM_IOSD_GET_INTERFACE(self)->set_content(self, type, content);
 }
 
+gint32 ipcam_iosd_invalidate(IpcamIOSD *self)
+{
+    g_return_val_if_fail(IPCAM_IS_IOSD(self), FALSE);
+    return IPCAM_IOSD_GET_INTERFACE(self)->invalidate(self);
+}
+
 gint32 ipcam_iosd_stop(IpcamIOSD *self)
 {
     g_return_val_if_fail(IPCAM_IS_IOSD(self), FALSE);

@@ -95,6 +95,7 @@ static void ipcam_imedia_in_loop(IpcamIMedia *imedia)
         priv->last_time = now;
         strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S ", localtime(&now));
         ipcam_iosd_set_content(priv->osd, IPCAM_OSD_TYPE_DATETIME, timeBuf);
+        ipcam_iosd_invalidate(priv->osd);
     }
 }
 static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
@@ -281,7 +282,7 @@ static void ipcam_imedia_osd_lookup_video_run_info(IpcamIMedia *imedia,
         g_print("\n");
         */
         //g_print("%d %d %d\n", id, bit_rate_val, frame_rate_val);
-        ipcam_imedia_osd_int_to_string(imedia, bit_rate_val, &priv->bit_rate, BIT_RATE_BUF_SIZE, "kpbs");
+        ipcam_imedia_osd_int_to_string(imedia, bit_rate_val, &priv->bit_rate, BIT_RATE_BUF_SIZE, "kbps");
         ipcam_imedia_osd_int_to_string(imedia, frame_rate_val, &priv->frame_rate, FRAME_RATE_BUF_SIZE, "fps");
     }
 }
