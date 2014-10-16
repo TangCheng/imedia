@@ -104,7 +104,7 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
 
     if (!timeout && msg)
     {
-#if 1
+#if 0
         gchar *str = ipcam_message_to_string(msg);
         g_print("result=\n%s\n", str);
         g_free(str);
@@ -124,7 +124,7 @@ static void message_handler(GObject *obj, IpcamMessage* msg, gboolean timeout)
         }
         else
         {
-            g_critical("NEVER reached here!!!!");
+            g_warn_if_reached();
         }
     }
 }
@@ -132,17 +132,24 @@ static void ipcam_imedia_query_osd_parameter(IpcamIMedia *imedia)
 {
     gchar *token = ipcam_base_app_get_config(IPCAM_BASE_APP(imedia), "token");
     IpcamRequestMessage *rq_msg = g_object_new(IPCAM_REQUEST_MESSAGE_TYPE, "action", "get_osd", NULL);
+    
     JsonBuilder *builder = json_builder_new();
     json_builder_begin_object(builder);
     json_builder_set_member_name(builder, "items");
     json_builder_begin_array(builder);
-    json_builder_add_string_value(builder, "datetime");
-    json_builder_add_string_value(builder, "device_name");
-    json_builder_add_string_value(builder, "comment");
-    json_builder_add_string_value(builder, "frame_rate");
-    json_builder_add_string_value(builder, "bit_rate");
+    json_builder_add_string_value(builder, "master:datetime");
+    json_builder_add_string_value(builder, "master:device_name");
+    json_builder_add_string_value(builder, "master:comment");
+    json_builder_add_string_value(builder, "master:frame_rate");
+    json_builder_add_string_value(builder, "master:bit_rate");
+    json_builder_add_string_value(builder, "slave:datetime");
+    json_builder_add_string_value(builder, "slave:device_name");
+    json_builder_add_string_value(builder, "slave:comment");
+    json_builder_add_string_value(builder, "slave:frame_rate");
+    json_builder_add_string_value(builder, "slave:bit_rate");
     json_builder_end_array(builder);
     json_builder_end_object(builder);
+    
     JsonNode *body = json_builder_get_root(builder);
     g_object_set(G_OBJECT(rq_msg), "body", body, NULL);
     ipcam_base_app_send_message(IPCAM_BASE_APP(imedia), IPCAM_MESSAGE(rq_msg), "iconfig", token,
@@ -169,58 +176,85 @@ static void ipcam_imedia_query_baseinfo_parameter(IpcamIMedia *imedia)
     g_object_unref(rq_msg);
     g_object_unref(builder);
 }
+static IPCAM_OSD_TYPE ipcam_imedia_parse_osd_type(IpcamIMedia *imedia, const gchar *osd_name)
+{
+    IPCAM_OSD_TYPE type = IPCAM_OSD_TYPE_LAST;
+    
+    if (g_str_equal(osd_name, "datetime"))
+    {
+        type = IPCAM_OSD_TYPE_DATETIME;
+    }
+    else if (g_str_equal(osd_name, "device_name"))
+    {
+        type = IPCAM_OSD_TYPE_DEVICE_NAME;
+    }
+    else if (g_str_equal(osd_name, "comment"))
+    {
+        type = IPCAM_OSD_TYPE_COMMENT;
+    }
+    else if (g_str_equal(osd_name, "frame_rate"))
+    {
+        type = IPCAM_OSD_TYPE_FRAMERATE;
+    }
+    else if (g_str_equal(osd_name, "bit_rate"))
+    {
+        type = IPCAM_OSD_TYPE_BITRATE;
+    }
+    else
+    {
+        g_warn_if_reached();
+    }
+
+    return type;
+}
+
 static void ipcam_imedia_got_osd_parameter(IpcamIMedia *imedia, IpcamResponseMessage *res_msg)
 {
     IpcamIMediaPrivate *priv = ipcam_imedia_get_instance_private(imedia);
     IpcamOSDParameter parameter;
     JsonNode *body = NULL;
-    JsonArray *res_array;
+    JsonObject *profile_object;
+    JsonObject *osd_object;
     JsonObject *res_object;
-    gint i;
+    JsonObject *color_object;
+    GList *members, *item;
     IPCAM_OSD_TYPE type = IPCAM_OSD_TYPE_LAST;
+    const char *key[] = {"master", "slave"};
+    gint i = 0;
 
     g_object_get(res_msg, "body", &body, NULL);
-    res_array = json_object_get_array_member(json_node_get_object(body), "items");
+    res_object = json_object_get_object_member(json_node_get_object(body), "items");
 
-    for (i = 0; i < json_array_get_length(res_array); i++)
+    for (i = 0; i < ARRAY_SIZE(key); i++)
     {
-        const gchar *name;
-        res_object = json_array_get_object_element(res_array, i);
-        name = json_object_get_string_member(res_object, "name");
-        parameter.is_show = json_object_get_boolean_member(res_object, "isshow");
-        parameter.font_size = json_object_get_int_member(res_object, "size");
-        parameter.position.x = json_object_get_int_member(res_object, "x") * (guint32)IMAGE_WIDTH / 1000;
-        parameter.position.y = json_object_get_int_member(res_object, "y") * (guint32)IMAGE_HEIGHT / 1000;
-        parameter.color.value = json_object_get_int_member(res_object, "color");
-        if (g_str_equal(name, "datetime"))
+        if (json_object_has_member(res_object, key[i]))
         {
-            type = IPCAM_OSD_TYPE_DATETIME;
-        }
-        else if (g_str_equal(name, "device_name"))
-        {
-            type = IPCAM_OSD_TYPE_DEVICE_NAME;
-        }
-        else if (g_str_equal(name, "comment"))
-        {
-            type = IPCAM_OSD_TYPE_COMMENT;
-        }
-        else if (g_str_equal(name, "frame_rate"))
-        {
-            type = IPCAM_OSD_TYPE_FRAMERATE;
-        }
-        else if (g_str_equal(name, "bit_rate"))
-        {
-            type = IPCAM_OSD_TYPE_BITRATE;
-        }
-        else
-        {
-            g_critical("NEVER reached here!!! name is %s\n", name);
-        }
-
-        if (type != IPCAM_OSD_TYPE_LAST)
-        {
-            g_print("start osd: %s, type = [%d]\n", name, type);
-            ipcam_iosd_start(priv->osd, type, &parameter);
+            profile_object = json_object_get_object_member(res_object, key[i]);
+            members = json_object_get_members(profile_object);
+            for (item = g_list_first(members); item; item = g_list_next(item))
+            {
+                const gchar *name = item->data;
+                osd_object = json_object_get_object_member(profile_object, name);
+                parameter.is_show = json_object_get_boolean_member(osd_object, "isshow");
+                parameter.font_size = json_object_get_int_member(osd_object, "size");
+                parameter.position.x = json_object_get_int_member(osd_object, "left") * (guint32)IMAGE_WIDTH / 1000;
+                parameter.position.y = json_object_get_int_member(osd_object, "top") * (guint32)IMAGE_HEIGHT / 1000;
+                color_object = json_object_get_object_member(osd_object, "color");
+                if (color_object)
+                {
+                    parameter.color.red = json_object_get_int_member(color_object, "red");
+                    parameter.color.green = json_object_get_int_member(color_object, "green");
+                    parameter.color.blue = json_object_get_int_member(color_object, "blue");
+                    parameter.color.alpha = json_object_get_int_member(color_object, "alpha");
+                }
+                
+                type = ipcam_imedia_parse_osd_type(imedia, name);
+                if (type != IPCAM_OSD_TYPE_LAST)
+                {
+                    ipcam_iosd_start(priv->osd, type, &parameter);
+                }
+            }
+            g_list_free(members);
         }
     }
 }
