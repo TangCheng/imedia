@@ -1,7 +1,5 @@
 token: imedia_token
-bind:
-  imedia: tcp://127.0.0.1:4000
 connect:
-  iconfig: tcp://127.0.0.1:3000
+  iconfig: tcp://127.0.0.1:65400
 subscribe:
-  iconfig_pub: tcp://127.0.0.1:3010
+  iconfig_pub: tcp://127.0.0.1:65401

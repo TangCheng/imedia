@@ -16,6 +16,8 @@
 #include "hi3518/media_osd.h"
 #endif
 
+#define ARRAY_SIZE(x) (sizeof(x)) / (sizeof(x[0]))
+
 typedef struct _IpcamIMediaPrivate
 {
     IpcamIMediaSysCtrl *sys_ctrl;
