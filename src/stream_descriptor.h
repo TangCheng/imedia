@@ -70,6 +70,7 @@ typedef struct _StreamDescriptor
 
 typedef struct _VideoStreamData
 {
+    guint32 magic;
      guint32 len;
      struct timeval pts;
      //gchar data[0];
