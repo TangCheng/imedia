@@ -365,8 +365,9 @@ static gpointer ipcam_media_video_livestream(gpointer data)
                 {
                     VideoStreamData *vsd = (VideoStreamData *)g_malloc(sizeof(VideoStreamData));// + newFrameSize);
                     gint flags = ZMQ_SNDMORE;
-                    vsd->pts.tv_sec = stStream.pstPack[0].u64PTS / 1000000;
-                    vsd->pts.tv_usec = stStream.pstPack[0].u64PTS % 1000000;
+                    vsd->magic = 0xdeadface;
+                    vsd->pts.tv_sec = stStream.pstPack[0].u64PTS / 1000000ULL;
+                    vsd->pts.tv_usec = stStream.pstPack[0].u64PTS % 1000000ULL;
                     // Deliver the data here:
                     vsd->len = newFrameSize;
                     zmq_send(priv->publisher, vsd, sizeof(VideoStreamData), flags);
